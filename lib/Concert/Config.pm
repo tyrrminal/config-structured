@@ -1,4 +1,7 @@
 package Concert::Config;
+
+# ABSTRACT: Provides generalized and structured configuration value access from Mojolicious
+
 use Moose;
 use Moose::Util::TypeConstraints;
 use Mojo::DynamicMethods -dispatch;
