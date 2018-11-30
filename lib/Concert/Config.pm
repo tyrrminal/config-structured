@@ -1,4 +1,4 @@
-package Concert::Config 0.002;
+package Concert::Config 0.003;
 
 # ABSTRACT: Provides generalized and structured configuration value access from Mojolicious
 
@@ -75,6 +75,7 @@ sub BUILD {
   foreach my $el (dpath($self->_base)->match($self->_def)) {
     if(ref($el) eq 'HASH') {
       foreach my $def (keys(%$el)) {
+        $self->meta->remove_method($def);
         my $path = _concat_path($self->_base, $def); # construct the new directive path by concatenating with our base
         if(exists($el->{$def}->{isa})) { # Detect whether the resulting node is a branch or leaf node (leaf nodes are required to have an "isa" attribute, though we don't (yet) perform type constraint validation)
           # leaf
