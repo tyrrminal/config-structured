@@ -15,7 +15,10 @@ sub conf {
       user => "dbuser",
       pass => "not_dbpass",
     },
-    title => "Config Tester"
+    title => "Config Tester",
+    notifications => {
+      from => 'from@cp.com'
+    }
   }
 }
 
@@ -72,12 +75,16 @@ sub conf_init : Test(startup => 1) {
   isa_ok($test->{config},'Concert::Config');
 }
 
-sub test_config_file_value : Test(3) {
+sub test_config_file_value : Test(6) {
   my $conf = shift->{config};
 
   lives_ok(sub { $conf->db });
   lives_ok(sub { $conf->db->user });
   is($conf->db->user, 'dbuser');
+
+  lives_ok(sub { $conf->notifications });
+  lives_ok(sub { $conf->notifications->from });
+  is($conf->notifications->from, 'from@cp.com');
 }
 
 sub test_unspecified_value : Test(3) {
