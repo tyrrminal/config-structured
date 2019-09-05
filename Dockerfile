@@ -3,21 +3,23 @@
 ## docker build -t concert/{name}:test . &&
 ## docker run --rm -e DB_PASS=dbpass concert/{name}:test
 
-FROM ubuntu:16.04
+FROM perl:5.22 as cartoninstall
+RUN cpanm Carton
+ENV PERL5LIB=/usr/share/perl5
+WORKDIR /app
+COPY cpanfile* ./
+RUN carton install --deployment
 
-RUN apt-get update && apt-get install -qy \
-  --allow-downgrades --allow-remove-essential --allow-change-held-packages \
-  build-essential \
-  perl \
-  carton \
-  cpanminus
+#------------------------------------------------------------------------------------------
+
+FROM perl:5.22
 
 WORKDIR /test
 
-ENV PERL_CARTON_MIRROR=http://pamid.concertpharma.com:3111/ PERL_CARTON_PATH=/carton/local
-COPY cpanfile ./
-RUN carton install
-
+COPY --from=cartoninstall /app/local             /carton/local
 COPY . .
+
+ENV PERL5LIB="/carton/local/lib/perl5:/carton/local/lib/perl5/x86_64-linux-gnu:${PERLLIB}"
+ENV    PATH="/carton/local/bin:${PATH}"
 
 ENTRYPOINT ["carton","exec","prove","-l","-I","t/tests"]
