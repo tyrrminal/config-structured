@@ -1,10 +1,10 @@
-package Test::Concert::Config;
+package Test::Config::Structured;
 
 use base qw(Test::Class);
 use Test::More;
 use Test::Exception;
 
-use Concert::Config;
+use Config::Structured;
 
 #
 # Data For Testing
@@ -15,7 +15,7 @@ sub conf {
       user => "dbuser",
       pass => "not_dbpass",
     },
-    title => "Config Tester",
+    title         => "Config Tester",
     notifications => {
       from => 'from@cp.com'
     }
@@ -46,18 +46,18 @@ sub def {
     },
     db => {
       dsn => {
-        isa => 'Str',
-        env => 'DB_DSN',
+        isa     => 'Str',
+        env     => 'DB_DSN',
         default => 'localhost'
       },
       user => {
-        isa => 'Str',
-        env => 'DB_USER',
+        isa     => 'Str',
+        env     => 'DB_USER',
         default => 'configuser'
       },
       pass => {
-        isa => 'Str',
-        env => 'DB_PASS',
+        isa      => 'Str',
+        env      => 'DB_PASS',
         priority => 'env'
       }
     },
@@ -67,54 +67,54 @@ sub def {
 
 sub conf_init : Test(startup => 1) {
   my $test = shift;
-  $test->{config} = Concert::Config->new(
-    _conf => $test->conf,
-    _def  => $test->def
+  $test->{config} = Config::Structured->new(
+    definition    => $test->def,
+    config_values => $test->conf
   );
 
-  isa_ok($test->{config},'Concert::Config');
+  isa_ok($test->{config}, 'Config::Structured');
 }
 
 sub test_config_file_value : Test(6) {
   my $conf = shift->{config};
 
-  lives_ok(sub { $conf->db });
-  lives_ok(sub { $conf->db->user });
+  lives_ok(sub {$conf->db});
+  lives_ok(sub {$conf->db->user});
   is($conf->db->user, 'dbuser');
 
-  lives_ok(sub { $conf->notifications });
-  lives_ok(sub { $conf->notifications->from });
+  lives_ok(sub {$conf->notifications});
+  lives_ok(sub {$conf->notifications->from});
   is($conf->notifications->from, 'from@cp.com');
 }
 
 sub test_unspecified_value : Test(3) {
   my $conf = shift->{config};
 
-  lives_ok(sub { $conf->notifications });
-  lives_ok(sub { $conf->notifications->to });
+  lives_ok(sub {$conf->notifications});
+  lives_ok(sub {$conf->notifications->to});
   is($conf->notifications->to, undef);
 }
 
 sub test_env_overridden_value : Test(3) {
   my $conf = shift->{config};
 
-  lives_ok(sub { $conf->db });
-  lives_ok(sub { $conf->db->pass });
+  lives_ok(sub {$conf->db});
+  lives_ok(sub {$conf->db->pass});
   isnt($conf->db->pass, "not_dbpass");
 }
 
 sub test_default_value : Test(3) {
   my $conf = shift->{config};
 
-  lives_ok(sub { $conf->db });
-  lives_ok(sub { $conf->db->dsn });
+  lives_ok(sub {$conf->db});
+  lives_ok(sub {$conf->db->dsn});
   is($conf->db->dsn, 'localhost');
 }
 
 sub test_invalid : Test(1) {
   my $conf = shift->{config};
 
-  dies_ok(sub { $conf->title }, 'title is not in definition');
+  dies_ok(sub {$conf->title}, 'title is not in definition');
 }
 
 1;

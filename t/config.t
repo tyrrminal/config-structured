@@ -1,3 +1,3 @@
 #!/usr/bin/env perl
-use Test::Concert::Config;
+use Test::Config::Structured;
 Test::Class->runtests;
