@@ -92,22 +92,22 @@ sub BUILD {
           $self->_add_helper(
             $def => sub {
               my @val;
-              push(@val, @{dpath($path)->matchr($self->config_values)})
-                ;   # if the configuration is set in the .conf file, add it to our possible value list (if it's not, this is a noop)
-              push(@val, $ENV{$el->{env}})
-                if (defined($el->{env}) && exists($ENV{$el->{env}}))
-                ;    # if the definition sets an env var name, add its value to our possible value list
+              # if the configuration is set in the .conf file, add it to our possible value list (if it's not, this is a noop)
+              push(@val, @{dpath($path)->matchr($self->config_values)});
 
-              my $priority =
-                defined($el->{priority})
-                ? $el->{priority}
-                : $self->_priority;    #override the global priority with the directive definition's priority, if it's set
-              @val = reverse(@val)
-                if ($priority eq $CONF_FROM_ENV)
-                ; # if the priority is Environment, grab from the end of the list, otherwise, take from the front. This way if one or the other value is not populated, we'll still get the value we do have
-              push(@val, $el->{default})
-                if (exists($el->{default}))
-                ; # once we have the list ordered for preferential value taking, add the default value to the end so we'll get it if nothing else
+              # if the definition sets an env var name, add its value to our possible value list
+              push(@val, $ENV{$el->{env}}) if (defined($el->{env}) && exists($ENV{$el->{env}}));
+
+              #override the global priority with the directive definition's priority, if it's set
+              my $priority = defined($el->{priority}) ? $el->{priority} : $self->_priority;
+
+              # if the priority is Environment, grab from the end of the list, otherwise, take from the front.
+              #This way if one or the other value is not populated, we'll still get the value we do have
+              @val = reverse(@val) if ($priority eq $CONF_FROM_ENV);
+
+              # once we have the list ordered for preferential value taking,
+              # add the default value to the end so we'll get it if nothing else
+              push(@val, $el->{default}) if (exists($el->{default}));
 
               return (grep {defined} @val)[0];
             }
