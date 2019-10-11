@@ -75,7 +75,7 @@ sub _concat_path {
 }
 
 #
-# Dynamically create methods at instantiation time, corresponding to configutation definition's dpaths
+# Dynamically create methods at instantiation time, corresponding to configuration definition's dpaths
 #
 sub BUILD {
   my $self = shift;
@@ -141,6 +141,57 @@ sub BUILD_DYNAMIC {
     return $self->$dynamic(@args) if ($dynamic);
     my $package = ref $self;
     croak qq{Can't locate object method "$method" via package "$package"};
+  }
+}
+
+#
+# Saved Named/Default Config instances
+#
+our $saved_instances = {
+  default => undef,
+  named   => {}
+};
+
+#
+# Instance method
+# Saves the current instance as the default instance
+#
+sub __register_default {
+  my $self = shift;
+  $saved_instances->{default} = $self;
+  return $self;
+}
+
+#
+# Instance method
+# Saves the current instance by the specified name
+# Parameters:
+#  Name (Str), required
+#
+sub __register_as {
+  my $self = shift;
+  my ($name) = @_;
+
+  croak 'Registration name is required' unless (defined $name);
+
+  $saved_instances->{named}->{$name} = $self;
+  return $self;
+}
+
+#
+# Class method
+# Return a previously saved instance. Returns undef if no instances have been saved. Returns the default instance if no name is provided
+# Parameters:
+#  Name (Str), optional
+#
+sub get {
+  my $class = shift;
+  my ($name) = @_;
+
+  if (defined $name) {
+    return $saved_instances->{named}->{$name};
+  } else {
+    return $saved_instances->{default};
   }
 }
 
