@@ -1,4 +1,4 @@
-package Config::Structured 1.000;
+package Config::Structured 1.001;
 
 # ABSTRACT: Provides generalized and structured configuration value access
 
@@ -9,6 +9,7 @@ use Moose::Util::TypeConstraints;
 use Mojo::DynamicMethods -dispatch;
 
 use Carp;
+use File::Slurp qw(slurp);
 use List::Util qw(reduce);
 use Data::DPath qw(dpath);
 
@@ -19,8 +20,10 @@ Readonly::Scalar our $EMPTY => q{};
 Readonly::Scalar our $SLASH => q{/};
 
 # Token value constants
-Readonly::Scalar our $CONF_FROM_ENV    => q(env);
-Readonly::Scalar our $CONF_FROM_VALUES => q(conf);
+Readonly::Scalar our $CONF_FROM_FILE    => q(file);
+Readonly::Scalar our $CONF_FROM_ENV     => q(env);
+Readonly::Scalar our $CONF_FROM_VALUES  => q(conf);
+Readonly::Scalar our $CONF_FROM_DEFAULT => q(default);
 
 #
 # The configuration definition (e.g., $app.conf.def contents)
@@ -28,7 +31,7 @@ Readonly::Scalar our $CONF_FROM_VALUES => q(conf);
 has 'definition' => (
   is       => 'ro',
   isa      => 'HashRef',
-  required => 1
+  required => 1,
 );
 
 #
@@ -37,7 +40,7 @@ has 'definition' => (
 has 'config_values' => (
   is       => 'ro',
   isa      => 'HashRef',
-  required => 1
+  required => 1,
 );
 
 #
@@ -47,7 +50,7 @@ has 'config_values' => (
 has '_base' => (
   is      => 'ro',
   isa     => 'Str',
-  default => '/'
+  default => $SLASH,
 );
 
 #
@@ -56,8 +59,8 @@ has '_base' => (
 #
 has '_priority' => (
   is      => 'ro',
-  isa     => enum([$CONF_FROM_ENV, $CONF_FROM_VALUES]),
-  default => $CONF_FROM_ENV
+  isa     => 'ArrayRef[Str]',
+  default => sub {[$CONF_FROM_FILE, $CONF_FROM_ENV, $CONF_FROM_VALUES, $CONF_FROM_DEFAULT]},
 );
 
 #
@@ -82,7 +85,7 @@ sub BUILD {
 
   foreach my $el (dpath($self->_base)->match($self->definition)) {
     if (ref($el) eq 'HASH') {
-      foreach my $def (keys(%$el)) {
+      foreach my $def (keys(%{$el})) {
         $self->meta->remove_method($def);
         my $path = _concat_path($self->_base, $def);    # construct the new directive path by concatenating with our base
         if (exists($el->{$def}->{isa}))
@@ -91,25 +94,24 @@ sub BUILD {
           my $el = $el->{$def};
           $self->_add_helper(
             $def => sub {
-              my @val;
-              # if the configuration is set in the .conf file, add it to our possible value list (if it's not, this is a noop)
-              push(@val, @{dpath($path)->matchr($self->config_values)});
+              my %val;
 
-              # if the definition sets an env var name, add its value to our possible value list
-              push(@val, $ENV{$el->{env}}) if (defined($el->{env}) && exists($ENV{$el->{env}}));
+              my $v = (@{dpath($path)->matchr($self->config_values)})[0];
+              if (defined($v)) {
+                if ($el->{isa} eq 'Str' && $el->{file} && ref($v) eq 'HASH' && exists($v->{FILE})) {
+                  my $fn = $v->{FILE};
+                  $val{$CONF_FROM_FILE} = slurp($fn) if (-f -r $fn);
+                } else {
+                  $val{$CONF_FROM_VALUES} = $v;
+                }
+              }
 
-              #override the global priority with the directive definition's priority, if it's set
-              my $priority = defined($el->{priority}) ? $el->{priority} : $self->_priority;
+              $val{$CONF_FROM_ENV} = $ENV{$el->{$CONF_FROM_ENV}}
+                if (defined($el->{$CONF_FROM_ENV}) && exists($ENV{$el->{$CONF_FROM_ENV}}));
+              $val{$CONF_FROM_DEFAULT} = $el->{$CONF_FROM_DEFAULT} if (exists($el->{$CONF_FROM_DEFAULT}));
 
-              # if the priority is Environment, grab from the end of the list, otherwise, take from the front.
-              #This way if one or the other value is not populated, we'll still get the value we do have
-              @val = reverse(@val) if ($priority eq $CONF_FROM_ENV);
-
-              # once we have the list ordered for preferential value taking,
-              # add the default value to the end so we'll get it if nothing else
-              push(@val, $el->{default}) if (exists($el->{default}));
-
-              return (grep {defined} @val)[0];
+              my @priority = grep {defined} ($el->{priority}, @{$self->{_priority}});
+              return (grep {defined} @val{@priority})[0];
             }
           );
         } else {
