@@ -1,4 +1,4 @@
-package Config::Structured 1.001;
+package Config::Structured 1.002;
 
 # ABSTRACT: Provides generalized and structured configuration value access
 
@@ -100,7 +100,10 @@ sub BUILD {
               if (defined($v)) {
                 if ($el->{isa} eq 'Str' && $el->{file} && ref($v) eq 'HASH' && exists($v->{FILE})) {
                   my $fn = $v->{FILE};
-                  $val{$CONF_FROM_FILE} = slurp($fn) if (-f -r $fn);
+                  if (-f -r $fn) {
+                    chomp(my $contents = slurp($fn));
+                    $val{$CONF_FROM_FILE} = $contents;
+                  }
                 } else {
                   $val{$CONF_FROM_VALUES} = $v;
                 }
