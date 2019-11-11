@@ -1,8 +1,85 @@
-package Config::Structured 1.002;
+package Config::Structured;
 
 # ABSTRACT: Provides generalized and structured configuration value access
 
-use v5.22;
+=head1 SYNOPSIS
+
+  use Config::Structured;
+
+  my $conf = Config::Structured->new(
+    definition    => { ... },
+    config_values => { ... }
+  );
+
+  say $conf->some->nested->value();
+
+=head1 DESCRIPTION
+
+  L<Config::Structured> provides a structured method of accessing configuration values
+
+  This is predicated on the use of a configuration C<definition> (required), This definition
+  provides a hierarchical structure of configuration branches and leaves. Each branch becomes
+  a L<Config::Structured> method which returns a new L<Config::Structured> instance rooted at
+  that node, while each leaf becomes a method which returns the configuration value.
+
+  The configuration value is normally provided in the C<config_values> hash, which mirrors the
+  tree structue of the definition, but the leaf definition can also specify that it is permitted 
+  to come from an environment variable value or the contents of a named file (often recommended 
+  for security purposes, such as using docker secrets).
+
+  I<Definition Leaf Nodes> are required to include an "isa" key, whose value is a type 
+  (see L<Moose::Util::TypeConstraints>). Types are not currently checked (except in one 
+  special case) but the existence of this key is what identifies the node as a leaf. There are
+  a few other keys that L<Config::Structured> respects in a leaf node:
+
+  =over
+
+  =item C<env>
+
+  This key's value is the name of an environment variable whose value should be returned for this node.
+
+  If the variable in question is not set, C<env> is ignored.
+
+  =item C<file>
+
+  This is a boolean value that determines whether L<Config::Structured> can look inside of a file to return
+  its contents for this node's value. In order to use a file value, C<isa> must be "Str" and the C<config_values>
+  value for this node must be a hashref with a single key "FILE" whose value is an absolute file path.
+
+  =item C<default>
+
+  This key's value is the default configuration value if L<Config::Structured> cannot ascertain a 
+  more-applicable value from other sources
+
+  =item C<description>
+
+  =item C<notes>
+
+  A human-readable description and implementation nodes, respectively, of the configuration node. 
+  L<Config::Structured> does not do anything with these values at present, but they provides inline 
+  documentation of configuration directivess within the definition (particularly useful in the common 
+  case where the definition is read from a file)
+
+  =back
+
+=method get($name?)
+
+Class method.
+
+Returns a registered L<Config::Structured> instance.  If C<$name> is not provided, returns the default instance.
+Instances can be registered with C<__register_default> or C<__register_as>. This mechanism is used to provide
+global access to a configuration, even from code contexts that otherwise cannot share data.
+
+=method __register_default()
+
+Call on a L<Config::Structured> instance to set the instance as the default.
+
+=method __register_as($name)
+
+Call on a L<Config::Structured> instance to register the instance as the provided name.
+
+=cut
+use 5.022;
 
 use Moose;
 use Moose::Util::TypeConstraints;
