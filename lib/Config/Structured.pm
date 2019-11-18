@@ -24,8 +24,8 @@ package Config::Structured;
 
   The configuration value is normally provided in the C<config_values> hash, which mirrors the
   tree structue of the definition, but the leaf definition can also specify that it is permitted 
-  to come from an environment variable value or the contents of a named file (often recommended 
-  for security purposes, such as using docker secrets).
+  to come from an environment variable value. The value may also come from the contents of a file
+  by specifying a reference to a string containing the filename/path in the C<config_values>
 
   I<Definition Leaf Nodes> are required to include an "isa" key, whose value is a type 
   (see L<Moose::Util::TypeConstraints>). Types are not currently checked (except in one 
@@ -39,12 +39,6 @@ package Config::Structured;
   This key's value is the name of an environment variable whose value should be returned for this node.
 
   If the variable in question is not set, C<env> is ignored.
-
-  =item C<file>
-
-  This is a boolean value that determines whether L<Config::Structured> can look inside of a file to return
-  its contents for this node's value. In order to use a file value, C<isa> must be "Str" and the C<config_values>
-  value for this node must be a hashref with a single key "FILE" whose value is an absolute file path.
 
   =item C<default>
 
@@ -176,6 +170,8 @@ sub BUILD {
               my $v_conf = dpath($path)->matchr($self->config_values);
               if (scalar(@{$v_conf})) {
                 my $v = $v_conf->[0];
+                if (ref($v) eq 'SCALAR') {    #scalar references point to filenames from which to pull the config value
+                  my $fn = ${$v};
                   if (-f -r $fn) {
                     chomp(my $contents = slurp($fn));
                     $val{$CONF_FROM_FILE} = $contents;
