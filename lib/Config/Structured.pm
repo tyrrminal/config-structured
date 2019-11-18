@@ -173,10 +173,9 @@ sub BUILD {
             $def => sub {
               my %val;
 
-              my $v = (@{dpath($path)->matchr($self->config_values)})[0];
-              if (defined($v)) {
-                if ($el->{isa} eq 'Str' && $el->{file} && ref($v) eq 'HASH' && exists($v->{FILE})) {
-                  my $fn = $v->{FILE};
+              my $v_conf = dpath($path)->matchr($self->config_values);
+              if (scalar(@{$v_conf})) {
+                my $v = $v_conf->[0];
                   if (-f -r $fn) {
                     chomp(my $contents = slurp($fn));
                     $val{$CONF_FROM_FILE} = $contents;
@@ -190,8 +189,8 @@ sub BUILD {
                 if (defined($el->{$CONF_FROM_ENV}) && exists($ENV{$el->{$CONF_FROM_ENV}}));
               $val{$CONF_FROM_DEFAULT} = $el->{$CONF_FROM_DEFAULT} if (exists($el->{$CONF_FROM_DEFAULT}));
 
-              my @priority = grep {defined} ($el->{priority}, @{$self->{_priority}});
-              return (grep {defined} @val{@priority})[0];
+              my @priority = grep {exists($val{$_})} grep {defined} ($el->{priority}, @{$self->{_priority}});
+              return (@val{@priority})[0];
             }
           );
         } else {
