@@ -142,44 +142,65 @@ sub _add_helper {
 }
 
 #
-# Construct path without duplicating path separators, via reduction
-#
-sub _concat_path {
-  reduce {local $/ = $SLASH; chomp($a); join(($b =~ m|^$SLASH|) ? $EMPTY : $SLASH, $a, $b)} @_;
-}
-
-#
-# Dynamically create methods at instantiation time, corresponding to configuration definition's dpaths
+# Dynamically create methods at instantiation time, corresponding to configuration structure's dpaths
+# Use lexical subs and closures to avoid polluting namespace unnecessarily (preserving it for config nodes)
 #
 sub BUILD {
   my $self = shift;
 
-  foreach my $el (dpath($self->_base)->match($self->definition)) {
-    if (ref($el) eq 'HASH') {
-      foreach my $def (keys(%{$el})) {
-        $self->meta->remove_method($def);
-        my $path = _concat_path($self->_base, $def);    # construct the new directive path by concatenating with our base
-        if (exists($el->{$def}->{isa}))
-        { # Detect whether the resulting node is a branch or leaf node (leaf nodes are required to have an "isa" attribute, though we don't (yet) perform type constraint validation)
-              # leaf
-          my $el = $el->{$def};
-          $self->_add_helper(
-            $def => sub {
-              my %val;
+  # lexical subroutines
 
-              my $v_conf = dpath($path)->matchr($self->config_values);
-              if (scalar(@{$v_conf})) {
-                my $v = $v_conf->[0];
-                if (ref($v) eq 'SCALAR') {    #scalar references point to filenames from which to pull the config value
-                  my $fn = ${$v};
+  state sub is_hashref {
+    my $node = shift;
+    return ref($node) eq 'HASH';
+  }
+
+  state sub is_leaf_node {
+    my $node = shift;
+    exists($node->{isa});
+  }
+
+  state sub is_value_from_file_contents {
+    my $node = shift;
+    return ref($node) eq 'SCALAR';
+  }
+
+  state sub file_content_value {
+    my $node = shift;
+    my $fn   = ${$node};
                   if (-f -r $fn) {
                     chomp(my $contents = slurp($fn));
-                    $val{$CONF_FROM_FILE} = $contents;
+      return $contents;
+    }
+    return;
                   }
-                } else {
-                  $val{$CONF_FROM_VALUES} = $v;
+
+  state sub concat_path {
+    reduce {local $/ = $SLASH; chomp($a); join(($b =~ m|^$SLASH|) ? $EMPTY : $SLASH, $a, $b)} @_;
                 }
+
+  # Closures
+
+  my $get_child_nodes = sub {
+    my $base = shift;
+    return dpath($base)->match($self->_structure);
+  };
+
+  my $conf_value_for_path = sub {
+    my $path   = shift;
+    my $v_conf = dpath($path)->matchr($self->_config);
+    if (scalar(@{$v_conf})) {
+      my $v = $v_conf->[0];
+      #scalar references point to filenames from which to pull the config value
+      return $CONF_FROM_FILE   => file_content_value($v) if (is_value_from_file_contents($v));
+      return $CONF_FROM_VALUES => $v;
               }
+  };
+
+  my $make_leaf_generator = sub {
+    my ($el, $path) = @_;
+    return sub {
+      my %val = $conf_value_for_path->($path);
 
               $val{$CONF_FROM_ENV} = $ENV{$el->{$CONF_FROM_ENV}}
                 if (defined($el->{$CONF_FROM_ENV}) && exists($ENV{$el->{$CONF_FROM_ENV}}));
@@ -188,20 +209,32 @@ sub BUILD {
               my @priority = grep {exists($val{$_})} grep {defined} ($el->{priority}, @{$self->{_priority}});
               return (@val{@priority})[0];
             }
+  };
+
+  my $make_branch_generator = sub {
+    my $path = shift;
+    return sub {
+      return __PACKAGE__->new(
+        structure => $self->_structure,
+        config    => $self->_config,
+        _base     => $path,
+        _priority => $self->_priority
           );
-        } else {
+    }
+  };
+
+  foreach my $el ($get_child_nodes->($self->_base)) {
+    if (is_hashref($el)) {
+      foreach my $def (keys(%{$el})) {
+        carp('[' . __PACKAGE__ . "] Reserved word '$def' used as config node name: ignored") and next if ($def eq any(@RESERVED));
+        $self->meta->remove_method($def)
+          ;    # if the config node refers to a method already defined on our instance, remove that method
+        my $path = concat_path($self->_base, $def);    # construct the new directive path by concatenating with our base
+
+# Detect whether the resulting node is a branch or leaf node (leaf nodes are required to have an "isa" attribute, though we don't (yet) perform type constraint validation)
         # if it's a branch node, return a new Config instance with a new base location, for method chaining (e.g., config->db->pass)
           $self->_add_helper(
-            $def => sub {
-              return __PACKAGE__->new(
-                definition    => $self->definition,
-                config_values => $self->config_values,
-                _base         => $path,
-                _priority     => $self->_priority
-              );
-            }
-          );
-        }
+          $def => (is_leaf_node($el->{$def}) ? $make_leaf_generator->($el->{$def}, $path) : $make_branch_generator->($path)));
       }
     }
   }
