@@ -7,8 +7,8 @@ package Config::Structured;
   use Config::Structured;
 
   my $conf = Config::Structured->new(
-    definition    => { ... },
-    config_values => { ... }
+    structure    => { ... },
+    config       => { ... }
   );
 
   say $conf->some->nested->value();
@@ -17,17 +17,17 @@ package Config::Structured;
 
   L<Config::Structured> provides a structured method of accessing configuration values
 
-  This is predicated on the use of a configuration C<definition> (required), This definition
+  This is predicated on the use of a configuration C<structure> (required), This structure
   provides a hierarchical structure of configuration branches and leaves. Each branch becomes
   a L<Config::Structured> method which returns a new L<Config::Structured> instance rooted at
   that node, while each leaf becomes a method which returns the configuration value.
 
-  The configuration value is normally provided in the C<config_values> hash, which mirrors the
-  tree structue of the definition, but the leaf definition can also specify that it is permitted 
+  The configuration value is normally provided in the C<config> hash, which mirrors the
+  tree structue of the structure, but the leaf structure can also specify that it is permitted 
   to come from an environment variable value. The value may also come from the contents of a file
-  by specifying a reference to a string containing the filename/path in the C<config_values>
+  by specifying a reference to a string containing the filename/path in the C<config>
 
-  I<Definition Leaf Nodes> are required to include an "isa" key, whose value is a type 
+  I<Structure Leaf Nodes> are required to include an "isa" key, whose value is a type 
   (see L<Moose::Util::TypeConstraints>). Types are not currently checked (except in one 
   special case) but the existence of this key is what identifies the node as a leaf. There are
   a few other keys that L<Config::Structured> respects in a leaf node:
@@ -51,8 +51,8 @@ package Config::Structured;
 
   A human-readable description and implementation nodes, respectively, of the configuration node. 
   L<Config::Structured> does not do anything with these values at present, but they provides inline 
-  documentation of configuration directivess within the definition (particularly useful in the common 
-  case where the definition is read from a file)
+  documentation of configuration directivess within the structure (particularly useful in the common 
+  case where the structure is read from a file)
 
   =back
 
@@ -79,6 +79,7 @@ use Moose;
 use Moose::Util::TypeConstraints;
 use Mojo::DynamicMethods -dispatch;
 
+use Syntax::Keyword::Junction;
 use Carp;
 use File::Slurp qw(slurp);
 use List::Util qw(reduce);
@@ -150,7 +151,7 @@ has '_base' => (
 
 #
 # Toggle of whether to prefer the configuraiton file or ENV variables
-#   Can be overridden by specific configuration nodes in the configuration definition
+#   Can be overridden by specific configuration nodes in the configuration structure
 #
 has '_priority' => (
   is      => 'ro',
@@ -192,16 +193,16 @@ sub BUILD {
   state sub file_content_value {
     my $node = shift;
     my $fn   = ${$node};
-                  if (-f -r $fn) {
-                    chomp(my $contents = slurp($fn));
+    if (-f -r $fn) {
+      chomp(my $contents = slurp($fn));
       return $contents;
     }
     return;
-                  }
+  }
 
   state sub concat_path {
     reduce {local $/ = $SLASH; chomp($a); join(($b =~ m|^$SLASH|) ? $EMPTY : $SLASH, $a, $b)} @_;
-                }
+  }
 
   # Closures
 
@@ -218,7 +219,7 @@ sub BUILD {
       #scalar references point to filenames from which to pull the config value
       return $CONF_FROM_FILE   => file_content_value($v) if (is_value_from_file_contents($v));
       return $CONF_FROM_VALUES => $v;
-              }
+    }
   };
 
   my $make_leaf_generator = sub {
@@ -226,13 +227,13 @@ sub BUILD {
     return sub {
       my %val = $conf_value_for_path->($path);
 
-              $val{$CONF_FROM_ENV} = $ENV{$el->{$CONF_FROM_ENV}}
-                if (defined($el->{$CONF_FROM_ENV}) && exists($ENV{$el->{$CONF_FROM_ENV}}));
-              $val{$CONF_FROM_DEFAULT} = $el->{$CONF_FROM_DEFAULT} if (exists($el->{$CONF_FROM_DEFAULT}));
+      $val{$CONF_FROM_ENV} = $ENV{$el->{$CONF_FROM_ENV}}
+        if (defined($el->{$CONF_FROM_ENV}) && exists($ENV{$el->{$CONF_FROM_ENV}}));
+      $val{$CONF_FROM_DEFAULT} = $el->{$CONF_FROM_DEFAULT} if (exists($el->{$CONF_FROM_DEFAULT}));
 
-              my @priority = grep {exists($val{$_})} grep {defined} ($el->{priority}, @{$self->{_priority}});
-              return (@val{@priority})[0];
-            }
+      my @priority = grep {exists($val{$_})} grep {defined} ($el->{priority}, @{$self->{_priority}});
+      return (@val{@priority})[0];
+    }
   };
 
   my $make_branch_generator = sub {
@@ -243,7 +244,7 @@ sub BUILD {
         config    => $self->_config,
         _base     => $path,
         _priority => $self->_priority
-          );
+      );
     }
   };
 
@@ -256,8 +257,8 @@ sub BUILD {
         my $path = concat_path($self->_base, $def);    # construct the new directive path by concatenating with our base
 
 # Detect whether the resulting node is a branch or leaf node (leaf nodes are required to have an "isa" attribute, though we don't (yet) perform type constraint validation)
-        # if it's a branch node, return a new Config instance with a new base location, for method chaining (e.g., config->db->pass)
-          $self->_add_helper(
+# if it's a branch node, return a new Config instance with a new base location, for method chaining (e.g., config->db->pass)
+        $self->_add_helper(
           $def => (is_leaf_node($el->{$def}) ? $make_leaf_generator->($el->{$def}, $path) : $make_branch_generator->($path)));
       }
     }
