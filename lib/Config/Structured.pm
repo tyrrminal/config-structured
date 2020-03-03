@@ -86,32 +86,56 @@ use Data::DPath qw(dpath);
 
 use Readonly;
 
+use Config::Structured::Deserializer;
+
 # Symbol constants
-Readonly::Scalar our $EMPTY => q{};
-Readonly::Scalar our $SLASH => q{/};
+Readonly::Scalar my $EMPTY => q{};
+Readonly::Scalar my $SLASH => q{/};
 
 # Token value constants
-Readonly::Scalar our $CONF_FROM_FILE    => q(file);
-Readonly::Scalar our $CONF_FROM_ENV     => q(env);
-Readonly::Scalar our $CONF_FROM_VALUES  => q(conf);
-Readonly::Scalar our $CONF_FROM_DEFAULT => q(default);
+Readonly::Scalar my $CONF_FROM_FILE    => q(file);
+Readonly::Scalar my $CONF_FROM_ENV     => q(env);
+Readonly::Scalar my $CONF_FROM_VALUES  => q(conf);
+Readonly::Scalar my $CONF_FROM_DEFAULT => q(default);
+
+# Method names that are needed by Config::Structured and cannot be overridden by config node names
+Readonly::Array my @RESERVED =>
+  qw(get meta BUILD BUILD_DYNAMIC _config _structure _base _priority _add_helper __register_default __register_as);
 
 #
-# The configuration definition (e.g., $app.conf.def contents)
+# The configuration structure (e.g., $app.conf.def contents)
 #
-has 'definition' => (
+has '_structure_v' => (
+  is       => 'ro',
+  isa      => 'Str|HashRef',
+  init_arg => 'structure',
+  required => 1,
+);
+
+has '_structure' => (
   is       => 'ro',
   isa      => 'HashRef',
-  required => 1,
+  init_arg => undef,
+  lazy     => 1,
+  default  => sub {Config::Structured::Deserializer->decode(shift->_structure_v)}
 );
 
 #
 # The file-based configuration (e.g., $app.conf contents)
 #
-has 'config_values' => (
+has '_config_v' => (
+  is       => 'ro',
+  isa      => 'Str|HashRef',
+  init_arg => 'config',
+  required => 1,
+);
+
+has '_config' => (
   is       => 'ro',
   isa      => 'HashRef',
-  required => 1,
+  init_arg => undef,
+  lazy     => 1,
+  default  => sub {Config::Structured::Deserializer->decode(shift->_config_v)}
 );
 
 #
