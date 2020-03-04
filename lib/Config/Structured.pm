@@ -169,6 +169,10 @@ sub BUILD {
 
   # lexical subroutines
 
+  state sub carpp {
+    carp('[' . __PACKAGE__ . '] ' . shift());
+  }
+
   state sub is_hashref {
     my $node = shift;
     return ref($node) eq 'HASH';
@@ -245,7 +249,7 @@ sub BUILD {
   foreach my $el ($get_child_nodes->($self->_base)) {
     if (is_hashref($el)) {
       foreach my $def (keys(%{$el})) {
-        carp('[' . __PACKAGE__ . "] Reserved word '$def' used as config node name: ignored") and next if ($def eq any(@RESERVED));
+        carpp("Reserved word '$def' used as config node name: ignored") and next if ($def eq any(@RESERVED));
         $self->meta->remove_method($def)
           ;    # if the config node refers to a method already defined on our instance, remove that method
         my $path = concat_path($self->_base, $def);    # construct the new directive path by concatenating with our base
