@@ -101,7 +101,7 @@ Readonly::Scalar my $CONF_FROM_DEFAULT => q(default);
 
 # Method names that are needed by Config::Structured and cannot be overridden by config node names
 Readonly::Array my @RESERVED =>
-  qw(get meta BUILD BUILD_DYNAMIC _config _structure _base _priority _add_helper __register_default __register_as);
+  qw(get meta BUILD BUILD_DYNAMIC _config _structure _base _add_helper __register_default __register_as);
 
 #
 # The configuration structure (e.g., $app.conf.def contents)
@@ -147,16 +147,6 @@ has '_base' => (
   is      => 'ro',
   isa     => 'Str',
   default => $SLASH,
-);
-
-#
-# Toggle of whether to prefer the configuraiton file or ENV variables
-#   Can be overridden by specific configuration nodes in the configuration structure
-#
-has '_priority' => (
-  is      => 'ro',
-  isa     => 'ArrayRef[Str]',
-  default => sub {[$CONF_FROM_FILE, $CONF_FROM_ENV, $CONF_FROM_VALUES, $CONF_FROM_DEFAULT]},
 );
 
 #
