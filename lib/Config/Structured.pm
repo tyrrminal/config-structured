@@ -240,13 +240,12 @@ sub BUILD {
       return __PACKAGE__->new(
         structure => $self->_structure,
         config    => $self->_config,
-        _base     => $path,
-        _priority => $self->_priority
+        _base     => $path
       );
     }
   };
 
-  foreach my $el ($get_child_nodes->($self->_base)) {
+  foreach my $el (dpath($self->_base)->match($self->_structure)) {
     if (is_hashref($el)) {
       foreach my $def (keys(%{$el})) {
         carpp("Reserved word '$def' used as config node name: ignored") and next if ($def eq any(@RESERVED));
