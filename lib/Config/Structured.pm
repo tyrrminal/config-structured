@@ -93,11 +93,15 @@ use Config::Structured::Deserializer;
 Readonly::Scalar my $EMPTY => q{};
 Readonly::Scalar my $SLASH => q{/};
 
+# Token key constants
+Readonly::Scalar my $DEF_ISA     => q{isa};
+Readonly::Scalar my $DEF_DEFAULT => q{default};
+Readonly::Scalar my $CFG_SOURCE  => q{source};
+Readonly::Scalar my $CFG_REF     => q{ref};
+
 # Token value constants
-Readonly::Scalar my $CONF_FROM_FILE    => q(file);
-Readonly::Scalar my $CONF_FROM_ENV     => q(env);
-Readonly::Scalar my $CONF_FROM_VALUES  => q(conf);
-Readonly::Scalar my $CONF_FROM_DEFAULT => q(default);
+Readonly::Scalar my $CONF_FROM_FILE => q(file);
+Readonly::Scalar my $CONF_FROM_ENV  => q(env);
 
 # Method names that are needed by Config::Structured and cannot be overridden by config node names
 Readonly::Array my @RESERVED =>
