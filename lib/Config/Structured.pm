@@ -183,54 +183,63 @@ sub BUILD {
     exists($node->{isa});
   }
 
-  state sub is_value_from_file_contents {
-    my $node = shift;
-    return ref($node) eq 'SCALAR';
+  state sub is_ref_node {
+    my ($def, $node) = @_;
+    return 0 if ($def->{isa} =~ /hash/i);
+    return 0 unless (ref($node) eq 'HASH');
+    return (exists($node->{$CFG_SOURCE}) && exists($node->{$CFG_REF}));
   }
 
-  state sub file_content_value {
-    my $node = shift;
-    my $fn   = ${$node};
-    if (-f -r $fn) {
-      chomp(my $contents = slurp($fn));
-      return $contents;
+  state sub ref_content_value {
+    my $node   = shift;
+    my $source = $node->{$CFG_SOURCE};
+    my $ref    = $node->{$CFG_REF};
+    if ($source eq $CONF_FROM_FILE) {
+      if (-f -r $ref) {
+        chomp(my $contents = slurp($ref));
+        return $contents;
+      }
+    } elsif ($source eq $CONF_FROM_ENV) {
+      return $ENV{$ref} if (exists($ENV{$ref}));
     }
     return;
+  }
+
+  state sub node_value {
+    my ($el, $node) = @_;
+    if (defined($node)) {
+      my $v = is_ref_node($el, $node) ? ref_content_value($node) : $node;
+      return $v if (defined($v));
+    }
+    return $el->{$DEF_DEFAULT};
   }
 
   state sub concat_path {
     reduce {local $/ = $SLASH; chomp($a); join(($b =~ m|^$SLASH|) ? $EMPTY : $SLASH, $a, $b)} @_;
   }
 
-  # Closures
-
-  my $get_child_nodes = sub {
-    my $base = shift;
-    return dpath($base)->match($self->_structure);
-  };
-
-  my $conf_value_for_path = sub {
-    my $path   = shift;
-    my $v_conf = dpath($path)->matchr($self->_config);
-    if (scalar(@{$v_conf})) {
-      my $v = $v_conf->[0];
-      #scalar references point to filenames from which to pull the config value
-      return $CONF_FROM_FILE   => file_content_value($v) if (is_value_from_file_contents($v));
-      return $CONF_FROM_VALUES => $v;
+  state sub typecheck {
+    my ($isa, $value) = @_;
+    my $tc = Moose::Util::TypeConstraints::find_or_parse_type_constraint($isa);
+    if (defined($tc)) {
+      return $tc->check($value);
+    } else {
+      carpp("Invalid typeconstraint '$isa'. Skipping typecheck");
+      return 1;
     }
-  };
+  }
+
+  # Closures
 
   my $make_leaf_generator = sub {
     my ($el, $path) = @_;
     return sub {
-      my %val = $conf_value_for_path->($path);
-
-      $val{$CONF_FROM_ENV} = $ENV{$el->{$CONF_FROM_ENV}}
-        if (defined($el->{$CONF_FROM_ENV}) && exists($ENV{$el->{$CONF_FROM_ENV}}));
-      $val{$CONF_FROM_DEFAULT} = $el->{$CONF_FROM_DEFAULT} if (exists($el->{$CONF_FROM_DEFAULT}));
-
-      my @priority = grep {exists($val{$_})} grep {defined} ($el->{priority}, @{$self->{_priority}});
-      return (@val{@priority})[0];
+      my $isa = $el->{isa};
+      my $v   = node_value($el, dpath($path)->matchr($self->_config)->[0]);
+      if (defined($v)) {
+        typecheck($isa, $v) and return $v or carpp("Value '$v' does not conform to type '$isa'");
+      }
+      return;
     }
   };
 
