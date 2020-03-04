@@ -7,18 +7,17 @@ use Test::More tests => 1;
 use Config::Structured;
 
 my $conf = Config::Structured->new(
-  structure => <<'END'
-{
-  file_value => {
-    isa => 'Str'
+  structure => {
+    file_value => {
+      isa => 'Str'
+    }
+  },
+  config => {
+    file_value => {
+      source => 'file',
+      ref    => 't/data/app_password'
+    }
   }
-}
-END
-  , config => <<'END'
-{
-  file_value => \'t/data/app_password'
-}
-END
 );
 
 is($conf->file_value, 'secure_password123', 'Conf value from referenced file');

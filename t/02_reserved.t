@@ -21,7 +21,8 @@ warning_is {
   $conf->_config
 }
 {carped => '[Config::Structured] Reserved word \'_config\' used as config node name: ignored'}, 'Reserved word used';
-warnings_are {
+
+warning_is {
   my $conf = Config::Structured->new(
     structure => {
       config => {
