@@ -28,28 +28,21 @@ package Config::Structured;
   by specifying a reference to a string containing the filename/path in the C<config>
 
   I<Structure Leaf Nodes> are required to include an "isa" key, whose value is a type 
-  (see L<Moose::Util::TypeConstraints>). Types are not currently checked (except in one 
-  special case) but the existence of this key is what identifies the node as a leaf. There are
-  a few other keys that L<Config::Structured> respects in a leaf node:
+  (see L<Moose::Util::TypeConstraints>). If typechecking is not required, use isa => 'Any'.
+  There are a few other keys that L<Config::Structured> respects in a leaf node:
 
   =over
 
-  =item C<env>
-
-  This key's value is the name of an environment variable whose value should be returned for this node.
-
-  If the variable in question is not set, C<env> is ignored.
-
   =item C<default>
 
-  This key's value is the default configuration value if L<Config::Structured> cannot ascertain a 
-  more-applicable value from other sources
+  This key's value is the default configuration value if a data source or value is not provided by
+  the configuation.
 
   =item C<description>
 
   =item C<notes>
 
-  A human-readable description and implementation nodes, respectively, of the configuration node. 
+  A human-readable description and implementation notes, respectively, of the configuration node. 
   L<Config::Structured> does not do anything with these values at present, but they provides inline 
   documentation of configuration directivess within the structure (particularly useful in the common 
   case where the structure is read from a file)
