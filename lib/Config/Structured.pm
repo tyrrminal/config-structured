@@ -22,10 +22,10 @@ package Config::Structured;
   a L<Config::Structured> method which returns a new L<Config::Structured> instance rooted at
   that node, while each leaf becomes a method which returns the configuration value.
 
-  The configuration value is normally provided in the C<config> hash, which mirrors the
-  tree structue of the structure, but the leaf structure can also specify that it is permitted 
-  to come from an environment variable value. The value may also come from the contents of a file
-  by specifying a reference to a string containing the filename/path in the C<config>
+  The configuration value is normally provided in the C<config> hash. However, a C<config> node
+  for a non-Hash value can be a hash containing the "source" and "ref" keys. This permits sourcing
+  the config value from a file (when source="file") whose filesystem location is given in the "ref"
+  value, or an environment variable (when source="env") whose name is given in the "ref" value.
 
   I<Structure Leaf Nodes> are required to include an "isa" key, whose value is a type 
   (see L<Moose::Util::TypeConstraints>). If typechecking is not required, use isa => 'Any'.
