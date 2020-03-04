@@ -1,5 +1,7 @@
 package Config::Structured::Deserializer;
 
+# ABSTRACT: Deserializes perl structures, JSON or YML data, from strings or files
+
 use strict;
 use warnings;
 
