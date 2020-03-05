@@ -74,7 +74,7 @@ use Mojo::DynamicMethods -dispatch;
 
 use Syntax::Keyword::Junction;
 use Carp;
-use File::Slurp qw(slurp);
+use IO::All;
 use List::Util qw(reduce);
 use Data::DPath qw(dpath);
 
@@ -189,7 +189,7 @@ sub BUILD {
     my $ref    = $node->{$CFG_REF};
     if ($source eq $CONF_FROM_FILE) {
       if (-f -r $ref) {
-        chomp(my $contents = slurp($ref));
+        chomp(my $contents = io->file($ref)->slurp);
         return $contents;
       }
     } elsif ($source eq $CONF_FROM_ENV) {
