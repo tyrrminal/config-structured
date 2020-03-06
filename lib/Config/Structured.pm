@@ -7,8 +7,8 @@ package Config::Structured;
   use Config::Structured;
 
   my $conf = Config::Structured->new(
-    definition    => { ... },
-    config_values => { ... }
+    structure    => { ... },
+    config       => { ... }
   );
 
   say $conf->some->nested->value();
@@ -17,42 +17,35 @@ package Config::Structured;
 
   L<Config::Structured> provides a structured method of accessing configuration values
 
-  This is predicated on the use of a configuration C<definition> (required), This definition
+  This is predicated on the use of a configuration C<structure> (required), This structure
   provides a hierarchical structure of configuration branches and leaves. Each branch becomes
   a L<Config::Structured> method which returns a new L<Config::Structured> instance rooted at
   that node, while each leaf becomes a method which returns the configuration value.
 
-  The configuration value is normally provided in the C<config_values> hash, which mirrors the
-  tree structue of the definition, but the leaf definition can also specify that it is permitted 
-  to come from an environment variable value. The value may also come from the contents of a file
-  by specifying a reference to a string containing the filename/path in the C<config_values>
+  The configuration value is normally provided in the C<config> hash. However, a C<config> node
+  for a non-Hash value can be a hash containing the "source" and "ref" keys. This permits sourcing
+  the config value from a file (when source="file") whose filesystem location is given in the "ref"
+  value, or an environment variable (when source="env") whose name is given in the "ref" value.
 
-  I<Definition Leaf Nodes> are required to include an "isa" key, whose value is a type 
-  (see L<Moose::Util::TypeConstraints>). Types are not currently checked (except in one 
-  special case) but the existence of this key is what identifies the node as a leaf. There are
-  a few other keys that L<Config::Structured> respects in a leaf node:
+  I<Structure Leaf Nodes> are required to include an "isa" key, whose value is a type 
+  (see L<Moose::Util::TypeConstraints>). If typechecking is not required, use isa => 'Any'.
+  There are a few other keys that L<Config::Structured> respects in a leaf node:
 
   =over
 
-  =item C<env>
-
-  This key's value is the name of an environment variable whose value should be returned for this node.
-
-  If the variable in question is not set, C<env> is ignored.
-
   =item C<default>
 
-  This key's value is the default configuration value if L<Config::Structured> cannot ascertain a 
-  more-applicable value from other sources
+  This key's value is the default configuration value if a data source or value is not provided by
+  the configuation.
 
   =item C<description>
 
   =item C<notes>
 
-  A human-readable description and implementation nodes, respectively, of the configuration node. 
+  A human-readable description and implementation notes, respectively, of the configuration node. 
   L<Config::Structured> does not do anything with these values at present, but they provides inline 
-  documentation of configuration directivess within the definition (particularly useful in the common 
-  case where the definition is read from a file)
+  documentation of configuration directivess within the structure (particularly useful in the common 
+  case where the structure is read from a file)
 
   =back
 
@@ -79,39 +72,70 @@ use Moose;
 use Moose::Util::TypeConstraints;
 use Mojo::DynamicMethods -dispatch;
 
+use Syntax::Keyword::Junction;
 use Carp;
-use File::Slurp qw(slurp);
+use IO::All;
 use List::Util qw(reduce);
 use Data::DPath qw(dpath);
 
 use Readonly;
 
+use Config::Structured::Deserializer;
+
+use experimental qw(signatures lexical_subs);
+
 # Symbol constants
-Readonly::Scalar our $EMPTY => q{};
-Readonly::Scalar our $SLASH => q{/};
+Readonly::Scalar my $EMPTY => q{};
+Readonly::Scalar my $SLASH => q{/};
+
+# Token key constants
+Readonly::Scalar my $DEF_ISA     => q{isa};
+Readonly::Scalar my $DEF_DEFAULT => q{default};
+Readonly::Scalar my $CFG_SOURCE  => q{source};
+Readonly::Scalar my $CFG_REF     => q{ref};
 
 # Token value constants
-Readonly::Scalar our $CONF_FROM_FILE    => q(file);
-Readonly::Scalar our $CONF_FROM_ENV     => q(env);
-Readonly::Scalar our $CONF_FROM_VALUES  => q(conf);
-Readonly::Scalar our $CONF_FROM_DEFAULT => q(default);
+Readonly::Scalar my $CONF_FROM_FILE => q(file);
+Readonly::Scalar my $CONF_FROM_ENV  => q(env);
+
+# Method names that are needed by Config::Structured and cannot be overridden by config node names
+Readonly::Array my @RESERVED =>
+  qw(get meta BUILD BUILD_DYNAMIC _config _structure _base _add_helper __register_default __register_as);
 
 #
-# The configuration definition (e.g., $app.conf.def contents)
+# The configuration structure (e.g., $app.conf.def contents)
 #
-has 'definition' => (
+has '_structure_v' => (
+  is       => 'ro',
+  isa      => 'Str|HashRef',
+  init_arg => 'structure',
+  required => 1,
+);
+
+has '_structure' => (
   is       => 'ro',
   isa      => 'HashRef',
-  required => 1,
+  init_arg => undef,
+  lazy     => 1,
+  default  => sub {Config::Structured::Deserializer->decode(shift->_structure_v)}
 );
 
 #
 # The file-based configuration (e.g., $app.conf contents)
 #
-has 'config_values' => (
+has '_config_v' => (
+  is       => 'ro',
+  isa      => 'Str|HashRef',
+  init_arg => 'config',
+  required => 1,
+);
+
+has '_config' => (
   is       => 'ro',
   isa      => 'HashRef',
-  required => 1,
+  init_arg => undef,
+  lazy     => 1,
+  default  => sub {Config::Structured::Deserializer->decode(shift->_config_v)}
 );
 
 #
@@ -125,16 +149,6 @@ has '_base' => (
 );
 
 #
-# Toggle of whether to prefer the configuraiton file or ENV variables
-#   Can be overridden by specific configuration nodes in the configuration definition
-#
-has '_priority' => (
-  is      => 'ro',
-  isa     => 'ArrayRef[Str]',
-  default => sub {[$CONF_FROM_FILE, $CONF_FROM_ENV, $CONF_FROM_VALUES, $CONF_FROM_DEFAULT]},
-);
-
-#
 # Convenience method for adding dynamic methods to an object
 #
 sub _add_helper {
@@ -142,66 +156,101 @@ sub _add_helper {
 }
 
 #
-# Construct path without duplicating path separators, via reduction
+# Dynamically create methods at instantiation time, corresponding to configuration structure's dpaths
+# Use lexical subs and closures to avoid polluting namespace unnecessarily (preserving it for config nodes)
 #
-sub _concat_path {
-  reduce {local $/ = $SLASH; chomp($a); join(($b =~ m|^$SLASH|) ? $EMPTY : $SLASH, $a, $b)} @_;
-}
+sub BUILD ($self, $args) {
+  # lexical subroutines
 
-#
-# Dynamically create methods at instantiation time, corresponding to configuration definition's dpaths
-#
-sub BUILD {
-  my $self = shift;
+  state sub carpp($msg) {
+    carp('[' . __PACKAGE__ . "] $msg");
+  }
 
-  foreach my $el (dpath($self->_base)->match($self->definition)) {
-    if (ref($el) eq 'HASH') {
+  state sub is_hashref($node) {
+    return ref($node) eq 'HASH';
+  }
+
+  state sub is_leaf_node($node) {
+    exists($node->{isa});
+  }
+
+  state sub is_ref_node ($def, $node) {
+    return 0 if ($def->{isa} =~ /hash/i);
+    return 0 unless (ref($node) eq 'HASH');
+    return (exists($node->{$CFG_SOURCE}) && exists($node->{$CFG_REF}));
+  }
+
+  state sub ref_content_value($node) {
+    my $source = $node->{$CFG_SOURCE};
+    my $ref    = $node->{$CFG_REF};
+    if ($source eq $CONF_FROM_FILE) {
+      if (-f -r $ref) {
+        chomp(my $contents = io->file($ref)->slurp);
+        return $contents;
+      }
+    } elsif ($source eq $CONF_FROM_ENV) {
+      return $ENV{$ref} if (exists($ENV{$ref}));
+    }
+    return;
+  }
+
+  state sub node_value ($el, $node) {
+    if (defined($node)) {
+      my $v = is_ref_node($el, $node) ? ref_content_value($node) : $node;
+      return $v if (defined($v));
+    }
+    return $el->{$DEF_DEFAULT};
+  }
+
+  state sub concat_path {
+    reduce {local $/ = $SLASH; chomp($a); join(($b =~ m|^$SLASH|) ? $EMPTY : $SLASH, $a, $b)} @_;
+  }
+
+  state sub typecheck ($isa, $value) {
+    my $tc = Moose::Util::TypeConstraints::find_or_parse_type_constraint($isa);
+    if (defined($tc)) {
+      return $tc->check($value);
+    } else {
+      carpp("Invalid typeconstraint '$isa'. Skipping typecheck");
+      return 1;
+    }
+  }
+
+  # Closures
+
+  my $make_leaf_generator = sub ($el, $path) {
+    return sub {
+      my $isa = $el->{isa};
+      my $v   = node_value($el, dpath($path)->matchr($self->_config)->[0]);
+      if (defined($v)) {
+        typecheck($isa, $v) and return $v or carpp("Value '$v' does not conform to type '$isa'");
+      }
+      return;
+    }
+  };
+
+  my $make_branch_generator = sub($path) {
+    return sub {
+      return __PACKAGE__->new(
+        structure => $self->_structure,
+        config    => $self->_config,
+        _base     => $path
+      );
+    }
+  };
+
+  foreach my $el (dpath($self->_base)->match($self->_structure)) {
+    if (is_hashref($el)) {
       foreach my $def (keys(%{$el})) {
-        $self->meta->remove_method($def);
-        my $path = _concat_path($self->_base, $def);    # construct the new directive path by concatenating with our base
-        if (exists($el->{$def}->{isa}))
-        { # Detect whether the resulting node is a branch or leaf node (leaf nodes are required to have an "isa" attribute, though we don't (yet) perform type constraint validation)
-              # leaf
-          my $el = $el->{$def};
-          $self->_add_helper(
-            $def => sub {
-              my %val;
+        carpp("Reserved word '$def' used as config node name: ignored") and next if ($def eq any(@RESERVED));
+        $self->meta->remove_method($def)
+          ;    # if the config node refers to a method already defined on our instance, remove that method
+        my $path = concat_path($self->_base, $def);    # construct the new directive path by concatenating with our base
 
-              my $v_conf = dpath($path)->matchr($self->config_values);
-              if (scalar(@{$v_conf})) {
-                my $v = $v_conf->[0];
-                if (ref($v) eq 'SCALAR') {    #scalar references point to filenames from which to pull the config value
-                  my $fn = ${$v};
-                  if (-f -r $fn) {
-                    chomp(my $contents = slurp($fn));
-                    $val{$CONF_FROM_FILE} = $contents;
-                  }
-                } else {
-                  $val{$CONF_FROM_VALUES} = $v;
-                }
-              }
-
-              $val{$CONF_FROM_ENV} = $ENV{$el->{$CONF_FROM_ENV}}
-                if (defined($el->{$CONF_FROM_ENV}) && exists($ENV{$el->{$CONF_FROM_ENV}}));
-              $val{$CONF_FROM_DEFAULT} = $el->{$CONF_FROM_DEFAULT} if (exists($el->{$CONF_FROM_DEFAULT}));
-
-              my @priority = grep {exists($val{$_})} grep {defined} ($el->{priority}, @{$self->{_priority}});
-              return (@val{@priority})[0];
-            }
-          );
-        } else {
-        # if it's a branch node, return a new Config instance with a new base location, for method chaining (e.g., config->db->pass)
-          $self->_add_helper(
-            $def => sub {
-              return __PACKAGE__->new(
-                definition    => $self->definition,
-                config_values => $self->config_values,
-                _base         => $path,
-                _priority     => $self->_priority
-              );
-            }
-          );
-        }
+# Detect whether the resulting node is a branch or leaf node (leaf nodes are required to have an "isa" attribute, though we don't (yet) perform type constraint validation)
+# if it's a branch node, return a new Config instance with a new base location, for method chaining (e.g., config->db->pass)
+        $self->_add_helper(
+          $def => (is_leaf_node($el->{$def}) ? $make_leaf_generator->($el->{$def}, $path) : $make_branch_generator->($path)));
       }
     }
   }
@@ -233,8 +282,7 @@ our $saved_instances = {
 # Instance method
 # Saves the current instance as the default instance
 #
-sub __register_default {
-  my $self = shift;
+sub __register_default($self) {
   $saved_instances->{default} = $self;
   return $self;
 }
@@ -245,10 +293,7 @@ sub __register_default {
 # Parameters:
 #  Name (Str), required
 #
-sub __register_as {
-  my $self = shift;
-  my ($name) = @_;
-
+sub __register_as ($self, $name) {
   croak 'Registration name is required' unless (defined $name);
 
   $saved_instances->{named}->{$name} = $self;
@@ -261,10 +306,7 @@ sub __register_as {
 # Parameters:
 #  Name (Str), optional
 #
-sub get {
-  my $class = shift;
-  my ($name) = @_;
-
+sub get ($class, $name = undef) {
   if (defined $name) {
     return $saved_instances->{named}->{$name};
   } else {
