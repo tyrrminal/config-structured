@@ -82,6 +82,8 @@ use Readonly;
 
 use Config::Structured::Deserializer;
 
+use Data::Printer;
+
 use experimental qw(signatures lexical_subs);
 
 # Symbol constants
@@ -223,7 +225,8 @@ sub BUILD ($self, $args) {
       my $isa = $el->{isa};
       my $v   = node_value($el, dpath($path)->matchr($self->_config)->[0]);
       if (defined($v)) {
-        typecheck($isa, $v) and return $v or carpp("Value '$v' does not conform to type '$isa'");
+        return $v if (typecheck($isa, $v));
+        carp(pkg_prefix "Value '" . np($v) . "' does not conform to type '$isa' for node $path");
       }
       return;
     }
