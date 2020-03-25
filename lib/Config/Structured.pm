@@ -162,8 +162,8 @@ sub _add_helper {
 sub BUILD ($self, $args) {
   # lexical subroutines
 
-  state sub carpp($msg) {
-    carp('[' . __PACKAGE__ . "] $msg");
+  state sub pkg_prefix($msg) {
+    '[' . __PACKAGE__ . "] $msg";
   }
 
   state sub is_hashref($node) {
@@ -211,7 +211,7 @@ sub BUILD ($self, $args) {
     if (defined($tc)) {
       return $tc->check($value);
     } else {
-      carpp("Invalid typeconstraint '$isa'. Skipping typecheck");
+      carp(pkg_prefix "Invalid typeconstraint '$isa'. Skipping typecheck");
       return 1;
     }
   }
@@ -242,7 +242,7 @@ sub BUILD ($self, $args) {
   foreach my $el (dpath($self->_base)->match($self->_structure)) {
     if (is_hashref($el)) {
       foreach my $def (keys(%{$el})) {
-        carpp("Reserved word '$def' used as config node name: ignored") and next if ($def eq any(@RESERVED));
+        carp(pkg_prefix "Reserved word '$def' used as config node name: ignored") and next if ($def eq any(@RESERVED));
         $self->meta->remove_method($def)
           ;    # if the config node refers to a method already defined on our instance, remove that method
         my $path = concat_path($self->_base, $def);    # construct the new directive path by concatenating with our base
