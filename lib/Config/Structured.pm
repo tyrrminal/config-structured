@@ -221,13 +221,20 @@ sub BUILD ($self, $args) {
   # Closures
 
   my $make_leaf_generator = sub ($el, $path) {
-    return sub {
-      my $isa = $el->{isa};
-      my $v   = node_value($el, dpath($path)->matchr($self->_config)->[0]);
-      if (defined($v)) {
+    my $isa = $el->{isa};
+    my $v   = node_value($el, dpath($path)->matchr($self->_config)->[0]);
+
+    if (defined($v)) {
+      if (typecheck($isa, $v)) {
         return $v if (typecheck($isa, $v));
+        return sub {
+          return $v;
+        }
+      } else {
         carp(pkg_prefix "Value '" . np($v) . "' does not conform to type '$isa' for node $path");
       }
+    }
+    return sub {
       return;
     }
   };
@@ -250,8 +257,8 @@ sub BUILD ($self, $args) {
           ;    # if the config node refers to a method already defined on our instance, remove that method
         my $path = concat_path($self->_base, $def);    # construct the new directive path by concatenating with our base
 
-# Detect whether the resulting node is a branch or leaf node (leaf nodes are required to have an "isa" attribute, though we don't (yet) perform type constraint validation)
-# if it's a branch node, return a new Config instance with a new base location, for method chaining (e.g., config->db->pass)
+        # Detect whether the resulting node is a branch or leaf node (leaf nodes are required to have an "isa" attribute)
+        # if it's a branch node, return a new Config instance with a new base location, for method chaining (e.g., config->db->pass)
         $self->_add_helper(
           $def => (is_leaf_node($el->{$def}) ? $make_leaf_generator->($el->{$def}, $path) : $make_branch_generator->($path)));
       }
