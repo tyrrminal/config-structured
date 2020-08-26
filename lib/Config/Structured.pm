@@ -77,6 +77,7 @@ use Carp;
 use IO::All;
 use List::Util qw(reduce);
 use Data::DPath qw(dpath);
+use Text::Glob qw(match_glob);
 
 use Readonly;
 
@@ -102,7 +103,7 @@ Readonly::Scalar my $CONF_FROM_ENV  => q(env);
 
 # Method names that are needed by Config::Structured and cannot be overridden by config node names
 Readonly::Array my @RESERVED =>
-  qw(get meta BUILD BUILD_DYNAMIC _config _structure _base _add_helper __register_default __register_as);
+  qw(get meta BUILD BUILD_DYNAMIC _config _structure _hooks _base _add_helper __register_default __register_as);
 
 #
 # The configuration structure (e.g., $app.conf.def contents)
@@ -120,6 +121,14 @@ has '_structure' => (
   init_arg => undef,
   lazy     => 1,
   default  => sub {Config::Structured::Deserializer->decode(shift->_structure_v)}
+);
+
+has '_hooks' => (
+  is       => 'ro',
+  isa      => 'HashRef[HashRef[CodeRef]]',
+  init_arg => 'hooks',
+  required => 0,
+  default  => sub {{}},
 );
 
 #
@@ -162,6 +171,8 @@ sub _add_helper {
 # Use lexical subs and closures to avoid polluting namespace unnecessarily (preserving it for config nodes)
 #
 sub BUILD ($self, $args) {
+  my @hooked_paths = keys(%{$self->_hooks});
+
   # lexical subroutines
 
   state sub pkg_prefix($msg) {
@@ -226,8 +237,12 @@ sub BUILD ($self, $args) {
 
     if (defined($v)) {
       if (typecheck($isa, $v)) {
-        return $v if (typecheck($isa, $v));
+        # load hook
+        my @hooks = map {$self->_hooks->{$_}} grep {return $_ if (match_glob($_, $path))} @hooked_paths;
+        foreach (@hooks) {$_->{on_load}->($path, $v)}
         return sub {
+          # access hook
+          foreach (@hooks) {$_->{on_access}->($path, $v)}
           return $v;
         }
       } else {
