@@ -103,7 +103,7 @@ Readonly::Scalar my $CONF_FROM_ENV  => q(env);
 
 # Method names that are needed by Config::Structured and cannot be overridden by config node names
 Readonly::Array my @RESERVED =>
-  qw(get meta BUILD BUILD_DYNAMIC _config _structure _hooks _base _add_helper __register_default __register_as);
+  qw(get meta BUILDCARGS BUILD BUILD_DYNAMIC _config _structure _hooks _base _add_helper __register_default __register_as);
 
 #
 # The configuration structure (e.g., $app.conf.def contents)
@@ -165,6 +165,12 @@ has '_base' => (
 sub _add_helper {
   Mojo::DynamicMethods::register __PACKAGE__, @_;
 }
+
+around BUILDARGS => sub ($orig, $class, @args) {
+  my %args = ref($args[0]) eq 'HASH' ? %{$args[0]} : @args;
+  delete($args{hooks}) unless (defined($args{hooks}));
+  return $class->$orig(%args);
+};
 
 #
 # Dynamically create methods at instantiation time, corresponding to configuration structure's dpaths
