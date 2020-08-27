@@ -288,20 +288,20 @@ sub BUILD ($self, $args) {
   if ($self->_base eq $SLASH) {
     sub ($path, $node) {
       foreach (keys(%{$node})) {
-        my $p = join($path eq $SLASH ? $EMPTY : $SLASH, $path, $_);
+        my $p = join($path eq $SLASH ? $EMPTY : $SLASH, $path, $_);    #don't duplicate initial slash in path
         my $n = $node->{$_};
         if (is_leaf_node($n)) {
           my @hooks = grep {defined} map {$_->{on_load}} $get_hooks->($p);
           if (@hooks) {
-            my $v = $get_node_value->($n, $p);
+            my $v = $get_node_value->($n, $p);                         #put off resolving the node value until we know we need it
             foreach (@hooks) {$_->($p, $v)}
           }
         } else {
-          __SUB__->($p, $n);
+          __SUB__->($p, $n);                                           #recurse on the new branch node
         }
       }
       }
-      ->($self->_base, $self->_structure);
+      ->($self->_base, $self->_structure);                             #initially call on root of structure
   }
 }
 
