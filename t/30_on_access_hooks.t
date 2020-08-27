@@ -16,11 +16,19 @@ warning_is {
         tmp => {
           isa => 'Str'
         }
+      },
+      activities => {
+        something => {
+          isa => 'Num'
+        }
       }
     },
     config => {
       paths => {
         tmp => '/data/tmp'
+      },
+      activities => {
+        something => 0
       }
     },
     hooks => {
@@ -31,6 +39,7 @@ warning_is {
       }
     }
   );
+  $conf->activities->something;
   $conf->paths->tmp;
 }
 "Directory '/data/tmp' does not exist at /paths/tmp (access)", 'on_access hook runs';
