@@ -171,8 +171,6 @@ sub _add_helper {
 # Use lexical subs and closures to avoid polluting namespace unnecessarily (preserving it for config nodes)
 #
 sub BUILD ($self, $args) {
-  my @hooked_paths = keys(%{$self->_hooks});
-
   # lexical subroutines
 
   state sub pkg_prefix($msg) {
@@ -230,19 +228,24 @@ sub BUILD ($self, $args) {
   }
 
   # Closures
+  my $get_node_value = sub ($el, $path) {
+    return node_value($el, dpath($path)->matchr($self->_config)->[0]);
+  };
+
+  my $get_hooks = sub($path) {
+    return map {$self->_hooks->{$_}} grep {match_glob($_, $path) ? $_ : ()} keys(%{$self->_hooks});
+  };
 
   my $make_leaf_generator = sub ($el, $path) {
     my $isa = $el->{isa};
-    my $v   = node_value($el, dpath($path)->matchr($self->_config)->[0]);
+    my $v   = $get_node_value->($el, $path);
 
     if (defined($v)) {
       if (typecheck($isa, $v)) {
-        # load hook
-        my @hooks = map {$self->_hooks->{$_}} grep {return $_ if (match_glob($_, $path))} @hooked_paths;
-        foreach (@hooks) {$_->{on_load}->($path, $v)}
+        my @hooks = grep {defined} map {$_->{on_access}} $get_hooks->($path);
         return sub {
           # access hook
-          foreach (@hooks) {$_->{on_access}->($path, $v)}
+          foreach (@hooks) {$_->($path, $v)}
           return $v;
         }
       } else {
@@ -259,6 +262,7 @@ sub BUILD ($self, $args) {
       return __PACKAGE__->new(
         structure => $self->_structure,
         config    => $self->_config,
+        hooks     => $self->_hooks,
         _base     => $path
       );
     }
@@ -278,6 +282,26 @@ sub BUILD ($self, $args) {
           $def => (is_leaf_node($el->{$def}) ? $make_leaf_generator->($el->{$def}, $path) : $make_branch_generator->($path)));
       }
     }
+  }
+
+  # Run on_load hooks immediately from root node only since we can't assume that non-root nodes will be created immediately
+  if ($self->_base eq $SLASH) {
+    sub ($path, $node) {
+      foreach (keys(%{$node})) {
+        my $p = join($path eq $SLASH ? $EMPTY : $SLASH, $path, $_);
+        my $n = $node->{$_};
+        if (is_leaf_node($n)) {
+          my @hooks = grep {defined} map {$_->{on_load}} $get_hooks->($p);
+          if (@hooks) {
+            my $v = $get_node_value->($n, $p);
+            foreach (@hooks) {$_->($p, $v)}
+          }
+        } else {
+          __SUB__->($p, $n);
+        }
+      }
+      }
+      ->($self->_base, $self->_structure);
   }
 }
 
