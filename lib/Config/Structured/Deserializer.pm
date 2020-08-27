@@ -6,7 +6,7 @@ use strict;
 use warnings;
 
 use File::Basename;
-use File::Slurp qw(slurp);
+use IO::All;
 use Readonly;
 
 use JSON qw(decode_json);
@@ -50,7 +50,7 @@ sub decode ($class, $v) {
   if (is_filename($v)) {
     my ($fn, $dirs, $suffix) = fileparse($v, keys(%FILE_TYPES));
     $hint = $FILE_TYPES{$suffix} if (defined($suffix));
-    $v    = slurp($v);
+    $v    = io->file($v)->slurp;
   }
   do {
     my $n       = $hint // (keys(%decoders))[0];

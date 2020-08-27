@@ -74,13 +74,17 @@ use Mojo::DynamicMethods -dispatch;
 
 use Syntax::Keyword::Junction;
 use Carp;
-use File::Slurp qw(slurp);
+use IO::All;
 use List::Util qw(reduce);
 use Data::DPath qw(dpath);
 
 use Readonly;
 
 use Config::Structured::Deserializer;
+
+use Data::Printer;
+
+use experimental qw(signatures lexical_subs);
 
 # Symbol constants
 Readonly::Scalar my $EMPTY => q{};
@@ -157,39 +161,33 @@ sub _add_helper {
 # Dynamically create methods at instantiation time, corresponding to configuration structure's dpaths
 # Use lexical subs and closures to avoid polluting namespace unnecessarily (preserving it for config nodes)
 #
-sub BUILD {
-  my $self = shift;
-
+sub BUILD ($self, $args) {
   # lexical subroutines
 
-  state sub carpp {
-    carp('[' . __PACKAGE__ . '] ' . shift());
+  state sub pkg_prefix($msg) {
+    '[' . __PACKAGE__ . "] $msg";
   }
 
-  state sub is_hashref {
-    my $node = shift;
+  state sub is_hashref($node) {
     return ref($node) eq 'HASH';
   }
 
-  state sub is_leaf_node {
-    my $node = shift;
+  state sub is_leaf_node($node) {
     exists($node->{isa});
   }
 
-  state sub is_ref_node {
-    my ($def, $node) = @_;
+  state sub is_ref_node ($def, $node) {
     return 0 if ($def->{isa} =~ /hash/i);
     return 0 unless (ref($node) eq 'HASH');
     return (exists($node->{$CFG_SOURCE}) && exists($node->{$CFG_REF}));
   }
 
-  state sub ref_content_value {
-    my $node   = shift;
+  state sub ref_content_value($node) {
     my $source = $node->{$CFG_SOURCE};
     my $ref    = $node->{$CFG_REF};
     if ($source eq $CONF_FROM_FILE) {
       if (-f -r $ref) {
-        chomp(my $contents = slurp($ref));
+        chomp(my $contents = io->file($ref)->slurp);
         return $contents;
       }
     } elsif ($source eq $CONF_FROM_ENV) {
@@ -198,8 +196,7 @@ sub BUILD {
     return;
   }
 
-  state sub node_value {
-    my ($el, $node) = @_;
+  state sub node_value ($el, $node) {
     if (defined($node)) {
       my $v = is_ref_node($el, $node) ? ref_content_value($node) : $node;
       return $v if (defined($v));
@@ -211,33 +208,31 @@ sub BUILD {
     reduce {local $/ = $SLASH; chomp($a); join(($b =~ m|^$SLASH|) ? $EMPTY : $SLASH, $a, $b)} @_;
   }
 
-  state sub typecheck {
-    my ($isa, $value) = @_;
+  state sub typecheck ($isa, $value) {
     my $tc = Moose::Util::TypeConstraints::find_or_parse_type_constraint($isa);
     if (defined($tc)) {
       return $tc->check($value);
     } else {
-      carpp("Invalid typeconstraint '$isa'. Skipping typecheck");
+      carp(pkg_prefix "Invalid typeconstraint '$isa'. Skipping typecheck");
       return 1;
     }
   }
 
   # Closures
 
-  my $make_leaf_generator = sub {
-    my ($el, $path) = @_;
+  my $make_leaf_generator = sub ($el, $path) {
     return sub {
       my $isa = $el->{isa};
       my $v   = node_value($el, dpath($path)->matchr($self->_config)->[0]);
       if (defined($v)) {
-        typecheck($isa, $v) and return $v or carpp("Value '$v' does not conform to type '$isa'");
+        return $v if (typecheck($isa, $v));
+        carp(pkg_prefix "Value '" . np($v) . "' does not conform to type '$isa' for node $path");
       }
       return;
     }
   };
 
-  my $make_branch_generator = sub {
-    my $path = shift;
+  my $make_branch_generator = sub($path) {
     return sub {
       return __PACKAGE__->new(
         structure => $self->_structure,
@@ -250,7 +245,7 @@ sub BUILD {
   foreach my $el (dpath($self->_base)->match($self->_structure)) {
     if (is_hashref($el)) {
       foreach my $def (keys(%{$el})) {
-        carpp("Reserved word '$def' used as config node name: ignored") and next if ($def eq any(@RESERVED));
+        carp(pkg_prefix "Reserved word '$def' used as config node name: ignored") and next if ($def eq any(@RESERVED));
         $self->meta->remove_method($def)
           ;    # if the config node refers to a method already defined on our instance, remove that method
         my $path = concat_path($self->_base, $def);    # construct the new directive path by concatenating with our base
@@ -290,8 +285,7 @@ our $saved_instances = {
 # Instance method
 # Saves the current instance as the default instance
 #
-sub __register_default {
-  my $self = shift;
+sub __register_default($self) {
   $saved_instances->{default} = $self;
   return $self;
 }
@@ -302,10 +296,7 @@ sub __register_default {
 # Parameters:
 #  Name (Str), required
 #
-sub __register_as {
-  my $self = shift;
-  my ($name) = @_;
-
+sub __register_as ($self, $name) {
   croak 'Registration name is required' unless (defined $name);
 
   $saved_instances->{named}->{$name} = $self;
@@ -318,10 +309,7 @@ sub __register_as {
 # Parameters:
 #  Name (Str), optional
 #
-sub get {
-  my $class = shift;
-  my ($name) = @_;
-
+sub get ($class, $name = undef) {
   if (defined $name) {
     return $saved_instances->{named}->{$name};
   } else {

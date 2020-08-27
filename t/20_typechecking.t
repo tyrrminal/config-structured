@@ -13,31 +13,28 @@ my $conf = Config::Structured->new(
       isa => 'ArrayRef[Str]'
     },
     authz => {
-      isa => 'Str'
+      isa => 'HashRef'
     },
     other => {
       isa => 'Any'
     },
     bad => {
-      isa => 'not a valid type'
+      isa => 'not a valid type'    # [sic] use of invalid type
     }
   },
   config => {
     labels => [qw(a b c)],
-    authz  => {
-      roles => {
-        admin => [qw(APP admin)]
-      }
-    },
-    other => [],
-    bad   => 'abc'
+    authz  => 'authz value',       # [sic] use of incorrect type
+    other  => [],
+    bad    => 'abc'
   }
 );
 
 is(ref($conf->labels), 'ARRAY', 'Conf value is array');
-warning_like {$conf->authz}{carped => qr/[[]Config::Structured\] Value 'HASH[(].*[)]' does not conform to type 'Str'/},
+warning_like {$conf->authz}{carped => qr/[[]Config::Structured\] Value '"authz value"' does not conform to type 'HashRef'/},
   'Conf value is not hash';
 
+# No warning for comparing anything to type Any
 warning_is {$conf->other} undef, 'Conf value is any';
 
 warning_like {$conf->bad}{carped => qr/\[Config::Structured\] Invalid typeconstraint '.*'. Skipping typecheck/}, 'Conf type is bad';
