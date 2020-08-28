@@ -4,6 +4,8 @@ package Config::Structured;
 
 =head1 SYNOPSIS
 
+Basic usage:
+
   use Config::Structured;
 
   my $conf = Config::Structured->new(
@@ -12,6 +14,20 @@ package Config::Structured;
   );
 
   say $conf->some->nested->value();
+
+Hooks exammple showing how to ensure config directories exist prior to first 
+use:
+
+  my $conf = Config::Structured->new(
+    ...
+    hooks => {
+      '/paths/*' => {
+        on_load => sub($node,$value) {
+          Mojo::File->new($value)->make_path
+        }
+      }
+    }
+  )
 
 =head1 DESCRIPTION
 
@@ -48,6 +64,12 @@ package Config::Structured;
   case where the structure is read from a file)
 
   =back
+
+  Besides C<structure> and C<config>, L<Config::Structured> also accepts a C<hooks> argument at 
+  initialization time. This argument must be a HashRef whose keys are patterns matching config
+  node paths, and whose values are HashRefs containing C<on_load> and/or C<on_access> keys. These
+  in turn point to CodeRefs which are run when the config value is initially loaded, or every time
+  it is accessed, respectively.
 
 =method get($name?)
 
