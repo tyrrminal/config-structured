@@ -8,6 +8,6 @@ node {
 }
 
 script {
-  // TODO: [05/14/2022 schelcj] - include the cpan-audit step
+  cpan_audit()
   build_cpan()
 }
