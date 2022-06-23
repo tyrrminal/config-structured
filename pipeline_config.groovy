@@ -9,5 +9,7 @@ libraries {
   }
   apprise
   perl
-  mkdocs
+  mkdocs {
+    bb_repo_slug = 'config-structured'
+  }
 }
