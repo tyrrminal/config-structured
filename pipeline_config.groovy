@@ -13,6 +13,6 @@ libraries {
     bb_repo_slug = 'config-structured'
     bb_dest_branch = 'master'
     bb_workspace_name = 'concertpharmaceuticals'
-    bb_api_base_url = 'https://api.bitbucket.org/2.0/repositories/'
+    bb_api_base_url = 'https://api.bitbucket.org/2.0/repositories'
   }
 }
