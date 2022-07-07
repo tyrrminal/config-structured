@@ -10,9 +10,6 @@ libraries {
   apprise
   perl
   mkdocs {
-    bb_repo_slug = 'config-structured'
-    bb_dest_branch = 'master'
-    bb_workspace_name = 'concertpharmaceuticals'
-    bb_api_base_url = 'https://api.bitbucket.org/2.0/repositories'
+    doc_base_dir = 'dev/docs/modules'
   }
 }
