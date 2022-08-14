@@ -3,10 +3,12 @@ jte {
   reverse_library_resolution = true
 }
 
+perl_conf {
+  cpanfile_path = './'
+}
+
 libraries {
-  audit {
-    cpanfile_path = './'
-  }
+  audit
   apprise
   perl
   mkdocs {
