@@ -7,6 +7,8 @@ node {
   }
 }
 
-// cpan_audit()
-// build_cpan()
-build_docs_cpan()
+script {
+  // cpan_audit()
+  // build_cpan()
+  build_docs_cpan()
+}
