@@ -97,9 +97,9 @@ use Mojo::DynamicMethods -dispatch;
 use Syntax::Keyword::Junction;
 use Carp;
 use IO::All;
-use List::Util qw(reduce);
+use List::Util  qw(reduce);
 use Data::DPath qw(dpath);
-use Text::Glob qw(match_glob);
+use Text::Glob  qw(match_glob);
 
 use Readonly;
 
@@ -201,15 +201,15 @@ around BUILDARGS => sub ($orig, $class, @args) {
 sub BUILD ($self, $args) {
   # lexical subroutines
 
-  state sub pkg_prefix($msg) {
+  state sub pkg_prefix ($msg) {
     '[' . __PACKAGE__ . "] $msg";
   }
 
-  state sub is_hashref($node) {
+  state sub is_hashref ($node) {
     return ref($node) eq 'HASH';
   }
 
-  state sub is_leaf_node($node) {
+  state sub is_leaf_node ($node) {
     exists($node->{isa});
   }
 
@@ -219,7 +219,7 @@ sub BUILD ($self, $args) {
     return (exists($node->{$CFG_SOURCE}) && exists($node->{$CFG_REF}));
   }
 
-  state sub ref_content_value($node) {
+  state sub ref_content_value ($node) {
     my $source = $node->{$CFG_SOURCE};
     my $ref    = $node->{$CFG_REF};
     if ($source eq $CONF_FROM_FILE) {
@@ -260,7 +260,7 @@ sub BUILD ($self, $args) {
     return node_value($el, dpath($path)->matchr($self->_config)->[0]);
   };
 
-  my $get_hooks = sub($path) {
+  my $get_hooks = sub ($path) {
     return map {$self->_hooks->{$_}} grep {match_glob($_, $path) ? $_ : ()} keys(%{$self->_hooks});
   };
 
@@ -285,7 +285,7 @@ sub BUILD ($self, $args) {
     }
   };
 
-  my $make_branch_generator = sub($path) {
+  my $make_branch_generator = sub ($path) {
     return sub {
       return __PACKAGE__->new(
         structure => $self->_structure,
@@ -321,15 +321,15 @@ sub BUILD ($self, $args) {
         if (is_leaf_node($n)) {
           my @hooks = grep {defined} map {$_->{on_load}} $get_hooks->($p);
           if (@hooks) {
-            my $v = $get_node_value->($n, $p);                         #put off resolving the node value until we know we need it
+            my $v = $get_node_value->($n, $p);    #put off resolving the node value until we know we need it
             foreach (@hooks) {$_->($p, $v)}
           }
         } else {
-          __SUB__->($p, $n);                                           #recurse on the new branch node
+          __SUB__->($p, $n);                      #recurse on the new branch node
         }
       }
       }
-      ->($self->_base, $self->_structure);                             #initially call on root of structure
+      ->($self->_base, $self->_structure);    #initially call on root of structure
   }
 }
 
@@ -359,7 +359,7 @@ our $saved_instances = {
 # Instance method
 # Saves the current instance as the default instance
 #
-sub __register_default($self) {
+sub __register_default ($self) {
   $saved_instances->{default} = $self;
   return $self;
 }
