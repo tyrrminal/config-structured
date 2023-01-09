@@ -125,7 +125,7 @@ Readonly::Scalar my $CONF_FROM_ENV  => q(env);
 
 # Method names that are needed by Config::Structured and cannot be overridden by config node names
 Readonly::Array my @RESERVED =>
-  qw(get meta BUILDCARGS BUILD BUILD_DYNAMIC _config _structure _hooks _base _add_helper __register_default __register_as);
+  qw(get meta BUILDCARGS BUILD BUILD_DYNAMIC _config _structure _hooks _base _add_helper __register_default __register_as __get_child_node_names);
 
 #
 # The configuration structure (e.g., $app.conf.def contents)
