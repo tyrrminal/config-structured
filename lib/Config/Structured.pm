@@ -391,4 +391,14 @@ sub get ($class, $name = undef) {
   }
 }
 
+#
+# Instance method
+# Get all the node names that are children of the current node in config structure
+# Returns:
+#   List of strings
+sub __get_child_node_names ($self) {
+  my ($node) = dpath($self->_base)->match($self->_structure);
+  return (keys($node->%*));
+}
+
 1;
