@@ -87,6 +87,10 @@ Call on a L<Config::Structured> instance to set the instance as the default.
 
 Call on a L<Config::Structured> instance to register the instance as the provided name.
 
+=method __get_child_node_names()
+
+Returns a list of names (strings) of all immediate child nodes of the current config node
+
 =cut
 use 5.022;
 
