@@ -10,5 +10,6 @@ node {
 script {
   cpan_audit()
   build_cpan()
+  perl_critic()
   build_docs_cpan()
 }
