@@ -31,45 +31,45 @@ use:
 
 =head1 DESCRIPTION
 
-  L<Config::Structured> provides a structured method of accessing configuration values
+L<Config::Structured> provides a structured method of accessing configuration values
 
-  This is predicated on the use of a configuration C<structure> (required), This structure
-  provides a hierarchical structure of configuration branches and leaves. Each branch becomes
-  a L<Config::Structured> method which returns a new L<Config::Structured> instance rooted at
-  that node, while each leaf becomes a method which returns the configuration value.
+This is predicated on the use of a configuration C<structure> (required), This structure
+provides a hierarchical structure of configuration branches and leaves. Each branch becomes
+a L<Config::Structured> method which returns a new L<Config::Structured> instance rooted at
+that node, while each leaf becomes a method which returns the configuration value.
 
-  The configuration value is normally provided in the C<config> hash. However, a C<config> node
-  for a non-Hash value can be a hash containing the "source" and "ref" keys. This permits sourcing
-  the config value from a file (when source="file") whose filesystem location is given in the "ref"
-  value, or an environment variable (when source="env") whose name is given in the "ref" value.
+The configuration value is normally provided in the C<config> hash. However, a C<config> node
+for a non-Hash value can be a hash containing the "source" and "ref" keys. This permits sourcing
+the config value from a file (when source="file") whose filesystem location is given in the "ref"
+value, or an environment variable (when source="env") whose name is given in the "ref" value.
 
-  I<Structure Leaf Nodes> are required to include an "isa" key, whose value is a type 
-  (see L<Moose::Util::TypeConstraints>). If typechecking is not required, use isa => 'Any'.
-  There are a few other keys that L<Config::Structured> respects in a leaf node:
+I<Structure Leaf Nodes> are required to include an "isa" key, whose value is a type 
+(see L<Moose::Util::TypeConstraints>). If typechecking is not required, use isa => 'Any'.
+There are a few other keys that L<Config::Structured> respects in a leaf node:
 
-  =over
+=over 5
 
-  =item C<default>
+=item C<default>
 
-  This key's value is the default configuration value if a data source or value is not provided by
-  the configuation.
+This key's value is the default configuration value if a data source or value is not provided by
+the configuation.
 
-  =item C<description>
+=item C<description>
 
-  =item C<notes>
+=item C<notes>
 
-  A human-readable description and implementation notes, respectively, of the configuration node. 
-  L<Config::Structured> does not do anything with these values at present, but they provides inline 
-  documentation of configuration directivess within the structure (particularly useful in the common 
-  case where the structure is read from a file)
+A human-readable description and implementation notes, respectively, of the configuration node. 
+L<Config::Structured> does not do anything with these values at present, but they provides inline 
+documentation of configuration directivess within the structure (particularly useful in the common 
+case where the structure is read from a file)
 
-  =back
+=back
 
-  Besides C<structure> and C<config>, L<Config::Structured> also accepts a C<hooks> argument at 
-  initialization time. This argument must be a HashRef whose keys are patterns matching config
-  node paths, and whose values are HashRefs containing C<on_load> and/or C<on_access> keys. These
-  in turn point to CodeRefs which are run when the config value is initially loaded, or every time
-  it is accessed, respectively.
+Besides C<structure> and C<config>, L<Config::Structured> also accepts a C<hooks> argument at 
+initialization time. This argument must be a HashRef whose keys are patterns matching config
+node paths, and whose values are HashRefs containing C<on_load> and/or C<on_access> keys. These
+in turn point to CodeRefs which are run when the config value is initially loaded, or every time
+it is accessed, respectively.
 
 =method get($name?)
 
@@ -92,6 +92,7 @@ Call on a L<Config::Structured> instance to register the instance as the provide
 Returns a list of names (strings) of all immediate child nodes of the current config node
 
 =cut
+
 use 5.022;
 
 use Moose;
