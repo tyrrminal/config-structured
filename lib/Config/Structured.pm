@@ -99,7 +99,7 @@ use Moose;
 use Moose::Util::TypeConstraints;
 use Mojo::DynamicMethods -dispatch;
 
-use Syntax::Keyword::Junction;
+use Perl6::Junction qw(any);
 use Carp;
 use IO::All;
 use List::Util  qw(reduce);
