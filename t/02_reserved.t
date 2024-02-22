@@ -2,12 +2,11 @@ use strict;
 use warnings qw(all);
 use 5.022;
 
-use Test::More tests => 2;
-use Test::Warn;
+use Test2::V0;
 
 use Config::Structured;
 
-warning_is {
+like(warning {
   my $conf = Config::Structured->new(
     structure => {
       _config => {
@@ -19,10 +18,9 @@ warning_is {
     }
   );
   $conf->_config
-}
-{carped => '[Config::Structured] Reserved word \'_config\' used as config node name: ignored'}, 'Reserved word used';
+}, qr/\[Config::Structured\] Reserved word '_config' used as config node name: ignored/, 'Reserved word used');
 
-warning_is {
+ok(no_warnings {
   my $conf = Config::Structured->new(
     structure => {
       config => {
@@ -34,5 +32,6 @@ warning_is {
     }
   );
   $conf->config
-}
-undef, 'No reserved word used';
+}, 'No reserved word used');
+
+done_testing;

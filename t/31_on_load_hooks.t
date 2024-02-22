@@ -2,14 +2,13 @@ use strict;
 use warnings qw(all);
 use 5.022;
 
-use Test::More tests => 1;
-use Test::Warn;
+use Test2::V0;
 
 use Config::Structured;
 
 use experimental qw(signatures);
 
-warning_is {
+like(warning {
   my $conf = Config::Structured->new(
     structure => {
       paths => {
@@ -41,5 +40,6 @@ warning_is {
   );
   $conf->activities->something;
   $conf->paths->tmp;
-}
-"Directory '/data/tmp' does not exist at /paths/tmp (load)", 'on_access hook runs';
+}, qr{Directory '/data/tmp' does not exist at /paths/tmp \(load\)}, 'on_access hook runs');
+
+done_testing;
