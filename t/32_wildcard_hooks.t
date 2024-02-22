@@ -2,15 +2,14 @@ use strict;
 use warnings qw(all);
 use 5.022;
 
-use Test::More tests => 3;
-use Test::Warn;
+use Test2::V0;
 
 use Config::Structured;
 
 use experimental qw(signatures);
 
 my $conf;
-warnings_like {
+like(warnings {
   $conf = Config::Structured->new(
     structure => {
       core => {
@@ -62,9 +61,11 @@ warnings_like {
   );
   $conf->core;
   $conf->auxiliary->assets;
-}
-[(qr{Directory '/data/\w+' does not exist at /core/\w+ \(load\)}) x 3,], 'on_load wildcard hook runs';
+},
+[(qr{Directory '/data/\w+' does not exist at /core/\w+ \(load\)}) x 3,], 'on_load wildcard hook runs');
 
-warning_is {$conf->auxiliary->tmp} "Touched a tmp dir", "on_access wildcard hook runs";
+like(warning {$conf->auxiliary->tmp}, qr{Touched a tmp dir}, "on_access wildcard hook runs");
 
-warnings_like {$conf->core->tmp} [(qr{Touched a (tmp|core) dir}) x 2], "on_access wildcard hooks run";
+like(warnings {$conf->core->tmp}, [(qr{Touched a (tmp|core) dir}) x 2], "on_access wildcard hooks run");
+
+done_testing;

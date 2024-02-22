@@ -2,15 +2,14 @@ use strict;
 use warnings qw(all);
 use 5.022;
 
-use Test::More tests => 2;
-use Test::Warn;
+use Test2::V0;
 
 use Config::Structured;
 
 use experimental qw(signatures);
 
 my $conf;
-warning_is {
+like(warning {
   $conf = Config::Structured->new(
     structure => {
       paths => {
@@ -42,11 +41,12 @@ warning_is {
   );
   $conf->activities->something;
   $conf->paths->tmp;
-}
-"Directory '/data/tmp' does not exist at /paths/tmp (access)", 'on_access hook runs';
+},
+qr{Directory '/data/tmp' does not exist at /paths/tmp \(access\)}, 'on_access hook runs');
 
-warnings_are {
+like(warnings {
   $conf->paths->tmp;
   $conf->paths->tmp;
-}
-[("Directory '/data/tmp' does not exist at /paths/tmp (access)") x 2], "on_access hook runs twice"
+}, [(qr{Directory '/data/tmp' does not exist at /paths/tmp \(access\)}) x 2], "on_access hook runs twice");
+
+done_testing;
