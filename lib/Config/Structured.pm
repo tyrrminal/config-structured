@@ -1,4 +1,6 @@
 package Config::Structured;
+use v5.22;
+use warnings;
 
 # ABSTRACT: Provides generalized and structured configuration value access
 
@@ -93,24 +95,19 @@ Returns a list of names (strings) of all immediate child nodes of the current co
 
 =cut
 
-use 5.022;
-
 use Moose;
-use Moose::Util::TypeConstraints;
-use Mojo::DynamicMethods -dispatch;
 
-use Perl6::Junction qw(any);
 use Carp;
+use Data::DPath qw(dpath);
+use Data::Printer; # not debug, used for Carp message in $make_leaf_generator
+use Data::Structure::Deserialize::Auto;
 use IO::All;
 use List::Util  qw(reduce);
-use Data::DPath qw(dpath);
-use Text::Glob  qw(match_glob);
-
+use Mojo::DynamicMethods -dispatch;
+use Moose::Util::TypeConstraints;
+use Perl6::Junction qw(any);
 use Readonly;
-
-use Config::Structured::Deserializer;
-
-use Data::Printer;
+use Text::Glob  qw(match_glob);
 
 use experimental qw(signatures lexical_subs);
 
@@ -147,7 +144,7 @@ has '_structure' => (
   isa      => 'HashRef',
   init_arg => undef,
   lazy     => 1,
-  default  => sub {Config::Structured::Deserializer->decode(shift->_structure_v)}
+  default  => sub($self) {Data::Structure::Deserialize::Auto::deserialize($self->_structure_v)}
 );
 
 has '_hooks' => (
@@ -173,7 +170,7 @@ has '_config' => (
   isa      => 'HashRef',
   init_arg => undef,
   lazy     => 1,
-  default  => sub {Config::Structured::Deserializer->decode(shift->_config_v)}
+  default  => sub($self) {Data::Structure::Deserialize::Auto::deserialize($self->_config_v)}
 );
 
 #
