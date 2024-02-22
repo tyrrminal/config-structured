@@ -186,8 +186,8 @@ has '_base' => (
 #
 # Convenience method for adding dynamic methods to an object
 #
-sub _add_helper {
-  Mojo::DynamicMethods::register __PACKAGE__, @_;
+sub _add_helper (@args) {
+  Mojo::DynamicMethods::register __PACKAGE__, @args;
 }
 
 around BUILDARGS => sub ($orig, $class, @args) {
@@ -243,8 +243,8 @@ sub BUILD ($self, $args) {
     return $el->{$DEF_DEFAULT};
   }
 
-  state sub concat_path {
-    reduce {local $/ = $SLASH; chomp($a); join(($b =~ m|^$SLASH|) ? $EMPTY : $SLASH, $a, $b)} @_;
+  state sub concat_path($base, $p) {
+    reduce {local $/ = $SLASH; chomp($a); join(($b =~ m|^$SLASH|) ? $EMPTY : $SLASH, $a, $b)} ($base, $p);
   }
 
   state sub typecheck ($isa, $value) {
@@ -338,10 +338,8 @@ sub BUILD ($self, $args) {
 #
 # Handle dynamic method dispatch
 #
-sub BUILD_DYNAMIC {
-  my ($class, $method, $dyn_methods) = @_;
-  return sub {
-    my ($self, @args) = @_;
+sub BUILD_DYNAMIC($class, $method, $dyn_methods)  {
+  return sub($self, @args) {
     my $dynamic = $dyn_methods->{$self}{$method};
     return $self->$dynamic(@args) if ($dynamic);
     my $package = ref $self;
