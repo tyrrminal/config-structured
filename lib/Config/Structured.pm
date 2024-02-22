@@ -4,6 +4,12 @@ use warnings;
 
 # ABSTRACT: Provides generalized and structured configuration value access
 
+=encoding UTF-8
+
+=head1 NAME
+
+Config::Structured - provides generalized and structured configuration value access
+
 =head1 SYNOPSIS
 
 Basic usage:
@@ -11,13 +17,46 @@ Basic usage:
   use Config::Structured;
 
   my $conf = Config::Structured->new(
-    structure    => { ... },
-    config       => { ... }
+    structure => { 
+      db => {
+        host     => {
+          isa         => 'Str',
+          default     => 'localhost',
+          description => 'the database server hostname',
+        },
+        username => {
+          isa         => 'Str',
+          default     => 'dbuser',
+          description => 'the database user's username',
+        },
+        password => {
+          isa         => 'Str',
+          description => 'the database user's password',
+        },
+      }
+    },
+    config => { 
+      db => {
+        username => 'appuser',
+        host     => {
+          source   => 'env',
+          ref      => 'DB_HOSTNAME',
+        },
+        password => {
+          source => 'file',
+          ref    => '/run/secrets/db_password',
+        },
+      }
+    }
   );
 
-  say $conf->some->nested->value();
+  say $conf->db->username(); # appuser
+  # assuming that the hostname value has been set in the DB_HOSTNAME env var
+  say $conf->db->host; # prod_db_1.mydomain.com
+  # assuming that the password value has been stored in /run/secrets/db_password
+  say $conf->db->password(); # *mD9ua&ZSVzEeWkm93bmQzG
 
-Hooks exammple showing how to ensure config directories exist prior to first 
+Hooks example showing how to ensure config directories exist prior to first 
 use:
 
   my $conf = Config::Structured->new(
@@ -49,7 +88,7 @@ I<Structure Leaf Nodes> are required to include an "isa" key, whose value is a t
 (see L<Moose::Util::TypeConstraints>). If typechecking is not required, use isa => 'Any'.
 There are a few other keys that L<Config::Structured> respects in a leaf node:
 
-=over 5
+=over
 
 =item C<default>
 
@@ -73,7 +112,23 @@ node paths, and whose values are HashRefs containing C<on_load> and/or C<on_acce
 in turn point to CodeRefs which are run when the config value is initially loaded, or every time
 it is accessed, respectively.
 
-=method get($name?)
+=cut
+
+=pod
+
+=head1 CONSTRUCTORS
+
+=head2 Config::Structured->new( config => {...}, structure => {...} )
+
+Returns a new C<Config::Structured> instance. C<config> and C<structure> are
+required parameters and must either be HashRefs or strings containing a data
+structure in C<JSON>, C<YAML>, or C<perl> (i.e., L<Data::Dumper>) formats. The
+format of the structure will be autodetected. The content of these data 
+structures is detailed above in the C<DESCRIPTION> section.
+
+=head1 METHODS
+
+=head2 get( [$name] )
 
 Class method.
 
@@ -81,15 +136,15 @@ Returns a registered L<Config::Structured> instance.  If C<$name> is not provide
 Instances can be registered with C<__register_default> or C<__register_as>. This mechanism is used to provide
 global access to a configuration, even from code contexts that otherwise cannot share data.
 
-=method __register_default()
+=head2 __register_default()
 
 Call on a L<Config::Structured> instance to set the instance as the default.
 
-=method __register_as($name)
+=head2 __register_as( $name )
 
 Call on a L<Config::Structured> instance to register the instance as the provided name.
 
-=method __get_child_node_names()
+=head2 __get_child_node_names()
 
 Returns a list of names (strings) of all immediate child nodes of the current config node
 
@@ -401,4 +456,36 @@ sub __get_child_node_names ($self) {
   return (keys($node->%*));
 }
 
+=pod
+
+=head1 AUTHOR
+
+Mark Tyrrell C<< <mark@tyrrminal.dev> >>
+
+=head1 LICENSE
+
+Copyright (c) 2024 Mark Tyrrell
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+=cut
+
 1;
+
+__END__
