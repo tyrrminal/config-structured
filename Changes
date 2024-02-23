@@ -1,5 +1,8 @@
 Revision history for perl distribution Config::Structured
 
+2.006      2024-02-23T09:52:29-04:00
+  - restore package version declaration
+
 2.005      2024-02-21T16:42:30-04:00
   - Improved documentation
   - Split out autodeserialization into its own independent module
