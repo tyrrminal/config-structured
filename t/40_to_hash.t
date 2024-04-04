@@ -4,7 +4,6 @@ use warnings;
 use Test2::V0;
 
 use Config::Structured;
-use JSON::XS qw(decode_json);
 
 $ENV{APP_PASSWORD} = 's3cret';
 
@@ -55,7 +54,7 @@ email =>
   migration =>
     user => "sqitch"
 END
-is(decode_json($conf->__to_json), {
+is($conf->__to_hash, {
   db => {
     pass => "s3cret",
     port => undef,
