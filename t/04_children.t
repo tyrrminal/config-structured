@@ -1,6 +1,5 @@
-use strict;
-use warnings qw(all);
-use v5.022;
+use v5.26;
+use warnings;
 
 use Test2::V0;
 
