@@ -3,7 +3,8 @@ Revision history for perl distribution Config::Structured
 3.00       2024-04-05T09:42:33-05:00
   - complete rewrite using Class::Prototyped to eliminate Mojolicious dependency
   - add get_node and to_hash methods for config introspection
-  - remove __get_child_node_names method
+  - remove __get_child_node_names method (redundant with get_node)
+  - remove static instance registration methods (curbing scope creep)
 
 2.006      2024-02-23T09:52:29-04:00
   - restore package version declaration
