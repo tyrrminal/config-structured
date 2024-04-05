@@ -54,7 +54,7 @@ email =>
   migration =>
     user => "sqitch"
 END
-is($conf->__to_hash, {
+is($conf->to_hash, {
   db => {
     pass => "s3cret",
     port => undef,
