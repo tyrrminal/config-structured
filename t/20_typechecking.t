@@ -1,6 +1,5 @@
-use strict;
-use warnings qw(all);
-use 5.022;
+use v5.26;
+use warnings;
 
 use Test2::V0;
 
@@ -18,17 +17,17 @@ like(warning {
     config    => {bad => 'abc'},
   );
 },
-qr{\[Config::Structured\] Invalid typeconstraint 'not a valid type'. Skipping typecheck},
+qr{Config::Structured invalid typeconstraint 'not a valid type' for cfg path /bad},
   'Invalid typeconstraint not caught');
 
-is($conf->bad, 'abc', 'Bad typeconstraint value');
+is($conf->bad, undef, 'Bad typeconstraint value');
 
 like(warning {
   $conf = Config::Structured->new(
     structure => {authz => {isa => 'HashRef'}},
     config    => {authz => 'authz value'},
   );
-}, qr{\[Config::Structured\] Value '"authz value"' does not conform to type 'HashRef' for node /authz},
+}, qr{Config::Structured value "authz value" does not conform to type 'HashRef' for cfg path /authz},
   'Incorrect typeconstraint not caught');
 
 done_testing;
