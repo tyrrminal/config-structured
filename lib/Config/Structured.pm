@@ -19,19 +19,23 @@ Basic usage:
   my $conf = Config::Structured->new(
     structure => { 
       db => {
-        host     => {
+        dsn     => {
           isa         => 'Str',
-          default     => 'localhost',
-          description => 'the database server hostname',
+          default     => '',
+          description => 'Data Source Name for connecting to the database',
+          url         => "https://en.wikipedia.org/wiki/Data_source_name",
+          examples    => ["dbi:SQLite:dbname=:memory:", "dbi:mysql:host=localhost;port=3306;database=prod_myapp"]
         },
         username => {
           isa         => 'Str',
           default     => 'dbuser',
-          description => 'the database user's username',
+          description => "the database user's username",
         },
         password => {
           isa         => 'Str',
-          description => 'the database user's password',
+          description => "the database user's password",
+          sensitive   => 1,
+          notes       => "Often ref'd via file or ENV for security"
         },
       }
     },
@@ -54,17 +58,19 @@ Basic usage:
   # assuming that the hostname value has been set in the DB_HOSTNAME env var
   say $conf->db->host; # prod_db_1.mydomain.com
   # assuming that the password value has been stored in /run/secrets/db_password
-  say $conf->db->password(); # *mD9ua&ZSVzEeWkm93bmQzG
+  say $conf->db->password(1); # *mD9ua&ZSVzEeWkm93bmQzG
 
 Hooks example showing how to ensure config directories exist prior to first 
 use:
+
+  use File::Path qw(make_path);
 
   my $conf = Config::Structured->new(
     ...
     hooks => {
       '/paths/*' => {
         on_load => sub($node,$value) {
-          Mojo::File->new($value)->make_path
+          make_path($value)
         }
       }
     }
