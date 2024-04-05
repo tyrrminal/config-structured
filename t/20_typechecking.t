@@ -27,7 +27,7 @@ like(warning {
     structure => {authz => {isa => 'HashRef'}},
     config    => {authz => 'authz value'},
   );
-}, qr{Config::Structured value '"authz value"' does not conform to type 'HashRef' for cfg path /authz},
+}, qr{Config::Structured value "authz value" does not conform to type 'HashRef' for cfg path /authz},
   'Incorrect typeconstraint not caught');
 
 done_testing;
